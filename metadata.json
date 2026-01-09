@@ -1,0 +1,5 @@
+{
+  "name": "嘉禾社區管理系統",
+  "description": "台北市嘉禾社區住戶繳費明細管理系統，包含住戶前端查詢與管理員後端登記功能。",
+  "requestFramePermissions": []
+}
