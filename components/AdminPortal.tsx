@@ -23,15 +23,64 @@ const AdminPortal: React.FC<Props> = ({ residents, payments, onPaymentSubmit }) 
   // 繳費起算與結算設定，預設相同
   const [prevMgmt, setPrevMgmt] = useState({ y: initialY, m: initialM });
   const [nextMgmt, setNextMgmt] = useState({ y: initialY, m: initialM });
-  
+
   const [prevMoto, setPrevMoto] = useState({ y: initialY, m: initialM });
   const [nextMoto, setNextMoto] = useState({ y: initialY, m: initialM });
-  
+
   const [prevCar, setPrevCar] = useState({ y: initialY, m: initialM });
   const [nextCar, setNextCar] = useState({ y: initialY, m: initialM });
 
   const [motoConfig, setMotoConfig] = useState<ParkingConfig>({ smallCount: 0, largeCount: 0 });
   const [carConfig, setCarConfig] = useState<ParkingConfig>({ smallCount: 0, largeCount: 0 });
+
+  const isBeforeOrEqual = (d1: { y: number, m: number }, d2: { y: number, m: number }) => {
+    if (d1.y < d2.y) return true;
+    if (d1.y > d2.y) return false;
+    return d1.m <= d2.m;
+  };
+
+  const validateAndSetDates = (
+    type: 'mgmt' | 'moto' | 'car',
+    target: 'prev' | 'next',
+    val: { y: number, m: number }
+  ) => {
+    if (type === 'mgmt') {
+      if (target === 'prev') {
+        setPrevMgmt(val);
+        setNextMgmt(currentNext => isBeforeOrEqual(val, currentNext) ? currentNext : val);
+      } else {
+        setNextMgmt(val);
+        setPrevMgmt(currentPrev => isBeforeOrEqual(currentPrev, val) ? currentPrev : val);
+      }
+    } else if (type === 'moto') {
+      if (target === 'prev') {
+        setPrevMoto(val);
+        setNextMoto(currentNext => isBeforeOrEqual(val, currentNext) ? currentNext : val);
+      } else {
+        setNextMoto(val);
+        setPrevMoto(currentPrev => isBeforeOrEqual(currentPrev, val) ? currentPrev : val);
+      }
+    } else {
+      if (target === 'prev') {
+        setPrevCar(val);
+        setNextCar(currentNext => isBeforeOrEqual(val, currentNext) ? currentNext : val);
+      } else {
+        setNextCar(val);
+        setPrevCar(currentPrev => isBeforeOrEqual(currentPrev, val) ? currentPrev : val);
+      }
+    }
+  };
+
+  useEffect(() => {
+    const currentYM = { y: initialY, m: initialM };
+
+    // Auto-update if current time is past the previous "next" date
+    // We fetch the current values from state or props if persisted, 
+    // but here we check against the initial defaults/state.
+    if (!isBeforeOrEqual(currentYM, nextMgmt)) setPrevMgmt(currentYM);
+    if (!isBeforeOrEqual(currentYM, nextMoto)) setPrevMoto(currentYM);
+    if (!isBeforeOrEqual(currentYM, nextCar)) setPrevCar(currentYM);
+  }, []);
 
   const [isPreview, setIsPreview] = useState(false);
   const [isChairmanMode, setIsChairmanMode] = useState(false);
@@ -43,7 +92,7 @@ const AdminPortal: React.FC<Props> = ({ residents, payments, onPaymentSubmit }) 
   const existingPayment = payments.find(p => p.residentId === selectedResidentId && p.year === year && p.month === month);
   const isPaidForPeriod = !!existingPayment;
 
-  const getMonthDiffInclusive = (start: {y: number, m: number}, end: {y: number, m: number}) => {
+  const getMonthDiffInclusive = (start: { y: number, m: number }, end: { y: number, m: number }) => {
     const diff = (end.y - start.y) * 12 + (end.m - start.m);
     return diff >= 0 ? diff + 1 : 0;
   };
@@ -56,11 +105,11 @@ const AdminPortal: React.FC<Props> = ({ residents, payments, onPaymentSubmit }) 
     const mgmtTotal = FEE_CONFIG.MANAGEMENT * mgmtMonths;
     const motoTotal = ((motoConfig.smallCount * FEE_CONFIG.MOTORCYCLE.small) + (motoConfig.largeCount * FEE_CONFIG.MOTORCYCLE.large)) * motoMonths;
     const carTotal = ((carConfig.smallCount * FEE_CONFIG.CAR.small) + (carConfig.largeCount * FEE_CONFIG.CAR.large)) * carMonths;
-    
-    return { 
-      management: mgmtTotal, 
-      motorcycle: motoTotal, 
-      car: carTotal, 
+
+    return {
+      management: mgmtTotal,
+      motorcycle: motoTotal,
+      car: carTotal,
       total: mgmtTotal + motoTotal + carTotal,
       mgmtMonths, motoMonths, carMonths
     };
@@ -72,7 +121,7 @@ const AdminPortal: React.FC<Props> = ({ residents, payments, onPaymentSubmit }) 
     const resident = residents.find(r => r.id === selectedResidentId);
     if (!resident) return;
 
-    const formatYM = (d: {y: number, m: number}) => `${d.y}-${d.m.toString().padStart(2, '0')}`;
+    const formatYM = (d: { y: number, m: number }) => `${d.y}-${d.m.toString().padStart(2, '0')}`;
 
     const newRecord: PaymentRecord = {
       residentId: selectedResidentId,
@@ -155,7 +204,7 @@ const AdminPortal: React.FC<Props> = ({ residents, payments, onPaymentSubmit }) 
         <div className="bg-white p-8 rounded-2xl shadow-xl border border-gray-100">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl font-black text-gray-800">嘉禾社區住戶繳費登記</h2>
-            <button 
+            <button
               onClick={() => setIsChairmanMode(!isChairmanMode)}
               className={`text-xs px-3 py-1 rounded-full border transition-colors ${isChairmanMode ? 'bg-red-100 border-red-300 text-red-600 font-bold' : 'bg-gray-100 border-gray-300 text-gray-500'}`}
             >
@@ -165,7 +214,7 @@ const AdminPortal: React.FC<Props> = ({ residents, payments, onPaymentSubmit }) 
 
           <div className="mb-8">
             <label className="block text-sm font-bold text-gray-700 mb-2">選擇住戶</label>
-            <select 
+            <select
               className="w-full p-4 border-2 border-indigo-50 rounded-xl bg-white shadow-sm text-lg font-bold"
               value={selectedResidentId}
               onChange={(e) => setSelectedResidentId(e.target.value)}
@@ -188,17 +237,17 @@ const AdminPortal: React.FC<Props> = ({ residents, payments, onPaymentSubmit }) 
                 <div className="flex justify-between items-center bg-white p-4 rounded-xl">
                   <span className="font-bold">小車位</span>
                   <div className="flex items-center gap-3">
-                    <button onClick={() => setMotoConfig(p => ({...p, smallCount: Math.max(0, p.smallCount - 1)}))} className="w-8 h-8 rounded-full border">-</button>
+                    <button onClick={() => setMotoConfig(p => ({ ...p, smallCount: Math.max(0, p.smallCount - 1) }))} className="w-8 h-8 rounded-full border">-</button>
                     <span className="text-lg font-black">{motoConfig.smallCount}</span>
-                    <button onClick={() => setMotoConfig(p => ({...p, smallCount: p.smallCount + 1}))} className="w-8 h-8 rounded-full border">+</button>
+                    <button onClick={() => setMotoConfig(p => ({ ...p, smallCount: p.smallCount + 1 }))} className="w-8 h-8 rounded-full border">+</button>
                   </div>
                 </div>
                 <div className="flex justify-between items-center bg-white p-4 rounded-xl">
                   <span className="font-bold">大車位</span>
                   <div className="flex items-center gap-3">
-                    <button onClick={() => setMotoConfig(p => ({...p, largeCount: Math.max(0, p.largeCount - 1)}))} className="w-8 h-8 rounded-full border">-</button>
+                    <button onClick={() => setMotoConfig(p => ({ ...p, largeCount: Math.max(0, p.largeCount - 1) }))} className="w-8 h-8 rounded-full border">-</button>
                     <span className="text-lg font-black">{motoConfig.largeCount}</span>
-                    <button onClick={() => setMotoConfig(p => ({...p, largeCount: p.largeCount + 1}))} className="w-8 h-8 rounded-full border">+</button>
+                    <button onClick={() => setMotoConfig(p => ({ ...p, largeCount: p.largeCount + 1 }))} className="w-8 h-8 rounded-full border">+</button>
                   </div>
                 </div>
               </div>
@@ -210,17 +259,17 @@ const AdminPortal: React.FC<Props> = ({ residents, payments, onPaymentSubmit }) 
                 <div className="flex justify-between items-center bg-white p-4 rounded-xl">
                   <span className="font-bold">小車位</span>
                   <div className="flex items-center gap-3">
-                    <button onClick={() => setCarConfig(p => ({...p, smallCount: Math.max(0, p.smallCount - 1)}))} className="w-8 h-8 rounded-full border">-</button>
+                    <button onClick={() => setCarConfig(p => ({ ...p, smallCount: Math.max(0, p.smallCount - 1) }))} className="w-8 h-8 rounded-full border">-</button>
                     <span className="text-lg font-black">{carConfig.smallCount}</span>
-                    <button onClick={() => setCarConfig(p => ({...p, smallCount: p.smallCount + 1}))} className="w-8 h-8 rounded-full border">+</button>
+                    <button onClick={() => setCarConfig(p => ({ ...p, smallCount: p.smallCount + 1 }))} className="w-8 h-8 rounded-full border">+</button>
                   </div>
                 </div>
                 <div className="flex justify-between items-center bg-white p-4 rounded-xl">
                   <span className="font-bold">大車位</span>
                   <div className="flex items-center gap-3">
-                    <button onClick={() => setCarConfig(p => ({...p, largeCount: Math.max(0, p.largeCount - 1)}))} className="w-8 h-8 rounded-full border">-</button>
+                    <button onClick={() => setCarConfig(p => ({ ...p, largeCount: Math.max(0, p.largeCount - 1) }))} className="w-8 h-8 rounded-full border">-</button>
                     <span className="text-lg font-black">{carConfig.largeCount}</span>
-                    <button onClick={() => setCarConfig(p => ({...p, largeCount: p.largeCount + 1}))} className="w-8 h-8 rounded-full border">+</button>
+                    <button onClick={() => setCarConfig(p => ({ ...p, largeCount: p.largeCount + 1 }))} className="w-8 h-8 rounded-full border">+</button>
                   </div>
                 </div>
               </div>
@@ -230,23 +279,23 @@ const AdminPortal: React.FC<Props> = ({ residents, payments, onPaymentSubmit }) 
           <div className="space-y-6">
             <h4 className="text-sm font-black text-gray-500 uppercase border-b pb-2">繳費期間設定</h4>
             {[
-              { l: '社區管理費 ($800)', ps: prevMgmt, pt: setPrevMgmt, ns: nextMgmt, nt: setNextMgmt, color: 'indigo' },
-              { l: '機車停車費', ps: prevMoto, pt: setPrevMoto, ns: nextMoto, nt: setNextMoto, color: 'purple' },
-              { l: '汽車停車費', ps: prevCar, pt: setPrevCar, ns: nextCar, nt: setNextCar, color: 'blue' },
+              { l: '社區管理費 ($800)', ps: prevMgmt, pt: (v: any) => validateAndSetDates('mgmt', 'prev', v), ns: nextMgmt, nt: (v: any) => validateAndSetDates('mgmt', 'next', v), color: 'indigo' },
+              { l: '機車停車費', ps: prevMoto, pt: (v: any) => validateAndSetDates('moto', 'prev', v), ns: nextMoto, nt: (v: any) => validateAndSetDates('moto', 'next', v), color: 'purple' },
+              { l: '汽車停車費', ps: prevCar, pt: (v: any) => validateAndSetDates('car', 'prev', v), ns: nextCar, nt: (v: any) => validateAndSetDates('car', 'next', v), color: 'blue' },
             ].map((item, i) => (
               <div key={i} className={`p-6 bg-${item.color}-50/30 rounded-2xl border-2 border-${item.color}-100 grid grid-cols-1 md:grid-cols-2 gap-8`}>
                 <div>
                   <p className="text-sm font-black text-gray-600 mb-2">{item.l}：繳費起算年月</p>
                   <div className="flex gap-2">
-                    <input type="number" value={item.ps.y} onChange={e => item.pt({...item.ps, y: Number(e.target.value)})} className="w-2/3 p-4 border rounded-xl text-xl font-bold" />
-                    <input type="number" value={item.ps.m} onChange={e => item.pt({...item.ps, m: Number(e.target.value)})} className="w-1/3 p-4 border rounded-xl text-xl font-bold" min="1" max="12" />
+                    <input type="number" value={item.ps.y} onChange={e => item.pt({ ...item.ps, y: Number(e.target.value) })} className="w-2/3 p-4 border rounded-xl text-xl font-bold" />
+                    <input type="number" value={item.ps.m} onChange={e => item.pt({ ...item.ps, m: Number(e.target.value) })} className="w-1/3 p-4 border rounded-xl text-xl font-bold" min="1" max="12" />
                   </div>
                 </div>
                 <div>
                   <p className="text-sm font-black text-gray-600 mb-2">{item.l}：繳費結算年月</p>
                   <div className="flex gap-2">
-                    <input type="number" value={item.ns.y} onChange={e => item.nt({...item.ns, y: Number(e.target.value)})} className="w-2/3 p-4 border rounded-xl text-xl font-bold" />
-                    <input type="number" value={item.ns.m} onChange={e => item.nt({...item.ns, m: Number(e.target.value)})} className="w-1/3 p-4 border rounded-xl text-xl font-bold" min="1" max="12" />
+                    <input type="number" value={item.ns.y} onChange={e => item.nt({ ...item.ns, y: Number(e.target.value) })} className="w-2/3 p-4 border rounded-xl text-xl font-bold" />
+                    <input type="number" value={item.ns.m} onChange={e => item.nt({ ...item.ns, m: Number(e.target.value) })} className="w-1/3 p-4 border rounded-xl text-xl font-bold" min="1" max="12" />
                   </div>
                 </div>
               </div>
@@ -257,9 +306,8 @@ const AdminPortal: React.FC<Props> = ({ residents, payments, onPaymentSubmit }) 
             <button
               onClick={() => setIsPreview(true)}
               disabled={(isPaidForPeriod && !isChairmanMode) || !selectedResidentId}
-              className={`w-full py-6 rounded-2xl font-black text-2xl transition-all shadow-xl ${
-                isChairmanMode && isPaidForPeriod ? 'bg-red-600 text-white' : 'bg-indigo-600 text-white disabled:bg-gray-300'
-              }`}
+              className={`w-full py-6 rounded-2xl font-black text-2xl transition-all shadow-xl ${isChairmanMode && isPaidForPeriod ? 'bg-red-600 text-white' : 'bg-indigo-600 text-white disabled:bg-gray-300'
+                }`}
             >
               {isChairmanMode && isPaidForPeriod ? '糾紛重設預覽' : '登記並預覽'}
             </button>

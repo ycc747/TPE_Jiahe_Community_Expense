@@ -2,19 +2,62 @@
 <img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
 </div>
 
-# Run and deploy your AI Studio app
+# 台北市嘉禾社區費用管理顯示網頁
 
-This contains everything you need to run your app locally.
+這是一個專為台北市嘉禾社區開發的費用管理與查詢系統，支援管理費、機車及汽車位租費的即時計算與登記。
 
-View your app in AI Studio: https://ai.studio/apps/drive/1kcZvMQH6p63S_fW_jwcHyjFecvdK-BAj
+## 🚀 快速開始
 
-## Run Locally
+對於全新使用者，請按照以下步驟完成開發環境配置並啟動專案：
 
-**Prerequisites:**  Node.js
+### 1. 前置需求 (Prerequisites)
 
+在開始之前，請確保您的電腦已安裝以下軟體：
+*   **Node.js**: 建議安裝 [LTS 版本](https://nodejs.org/) (包含 npm)。
+*   **Git**: 用於複製專案代碼 (選配)。
+*   **VS Code**: 推薦的代碼編輯器。
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+### 2. 安裝步驟 (Installation)
+
+1.  **取得代碼**：
+    將專案下載或複製到您的本地目錄。
+
+2.  **安裝依賴套件**：
+    開啟終端機 (Terminal/PowerShell)，進入專案根目錄並執行：
+    ```bash
+    npm install
+    ```
+
+### 3. 啟動專案 (Running the App)
+
+1.  **啟動開發伺服器**：
+    執行以下指令啟動本地預覽：
+    ```bash
+    npm run dev
+    ```
+2.  **瀏覽網頁**：
+    啟動成功後，終端機會顯示伺服器網址（通常為 `http://localhost:3000/`）。請透過瀏覽器開啟該網址。
+
+---
+
+## 📖 使用指南
+
+### 住戶查詢 (Resident Portal)
+*   首頁即為住戶查詢介面。
+*   選擇您的 **號碼**、**號碼尾綴 (如 -1)** 及 **樓層**。
+*   點擊「查詢明細」即可查看所有歷史繳費紀錄。
+
+### 管理登記 (Admin Portal)
+*   點擊導航欄的 **「管理設定」**。
+*   **一般模式**：可選擇住戶並登記當月費用、車位數及繳費期間。系統會自動根據費率計算總額。
+*   **主委模式**：點擊右上角「切換主委權限」，可覆蓋/修改已存在的繳費紀錄以處理糾紛。
+*   **自動化功能**：
+    *   系統會強制確保「起算年月」早於或等於「結算年月」。
+    *   進入新月份時，若舊週期已結束，系統會自動歸位起算年月至當前月份。
+
+---
+
+## 🛠 費率設定
+*   **社區管理費**：$800/月
+*   **機車位**：小 ($100), 大 ($200)
+*   **汽車位**：小 ($1200), 大 ($1800)
