@@ -33,6 +33,10 @@ const AdminPortal: React.FC<Props> = ({ residents, payments, onPaymentSubmit }) 
   const [motoConfig, setMotoConfig] = useState<ParkingConfig>({ smallCount: 0, largeCount: 0 });
   const [carConfig, setCarConfig] = useState<ParkingConfig>({ smallCount: 0, largeCount: 0 });
 
+  const [mgmtError, setMgmtError] = useState(false);
+  const [motoError, setMotoError] = useState(false);
+  const [carError, setCarError] = useState(false);
+
   const isBeforeOrEqual = (d1: { y: number, m: number }, d2: { y: number, m: number }) => {
     if (d1.y < d2.y) return true;
     if (d1.y > d2.y) return false;
@@ -44,30 +48,52 @@ const AdminPortal: React.FC<Props> = ({ residents, payments, onPaymentSubmit }) 
     target: 'prev' | 'next',
     val: { y: number, m: number }
   ) => {
+    let hasError = false;
     if (type === 'mgmt') {
       if (target === 'prev') {
         setPrevMgmt(val);
-        setNextMgmt(currentNext => isBeforeOrEqual(val, currentNext) ? currentNext : val);
+        if (!isBeforeOrEqual(val, nextMgmt)) {
+          setNextMgmt(val);
+          hasError = true;
+        }
       } else {
         setNextMgmt(val);
-        setPrevMgmt(currentPrev => isBeforeOrEqual(currentPrev, val) ? currentPrev : val);
+        if (!isBeforeOrEqual(prevMgmt, val)) {
+          setPrevMgmt(val);
+          hasError = true;
+        }
       }
+      setMgmtError(hasError);
     } else if (type === 'moto') {
       if (target === 'prev') {
         setPrevMoto(val);
-        setNextMoto(currentNext => isBeforeOrEqual(val, currentNext) ? currentNext : val);
+        if (!isBeforeOrEqual(val, nextMoto)) {
+          setNextMoto(val);
+          hasError = true;
+        }
       } else {
         setNextMoto(val);
-        setPrevMoto(currentPrev => isBeforeOrEqual(currentPrev, val) ? currentPrev : val);
+        if (!isBeforeOrEqual(prevMoto, val)) {
+          setPrevMoto(val);
+          hasError = true;
+        }
       }
+      setMotoError(hasError);
     } else {
       if (target === 'prev') {
         setPrevCar(val);
-        setNextCar(currentNext => isBeforeOrEqual(val, currentNext) ? currentNext : val);
+        if (!isBeforeOrEqual(val, nextCar)) {
+          setNextCar(val);
+          hasError = true;
+        }
       } else {
         setNextCar(val);
-        setPrevCar(currentPrev => isBeforeOrEqual(currentPrev, val) ? currentPrev : val);
+        if (!isBeforeOrEqual(prevCar, val)) {
+          setPrevCar(val);
+          hasError = true;
+        }
       }
+      setCarError(hasError);
     }
   };
 
@@ -279,23 +305,28 @@ const AdminPortal: React.FC<Props> = ({ residents, payments, onPaymentSubmit }) 
           <div className="space-y-6">
             <h4 className="text-sm font-black text-gray-500 uppercase border-b pb-2">繳費期間設定</h4>
             {[
-              { l: '社區管理費 ($800)', ps: prevMgmt, pt: (v: any) => validateAndSetDates('mgmt', 'prev', v), ns: nextMgmt, nt: (v: any) => validateAndSetDates('mgmt', 'next', v), color: 'indigo' },
-              { l: '機車停車費', ps: prevMoto, pt: (v: any) => validateAndSetDates('moto', 'prev', v), ns: nextMoto, nt: (v: any) => validateAndSetDates('moto', 'next', v), color: 'purple' },
-              { l: '汽車停車費', ps: prevCar, pt: (v: any) => validateAndSetDates('car', 'prev', v), ns: nextCar, nt: (v: any) => validateAndSetDates('car', 'next', v), color: 'blue' },
+              { l: '社區管理費 ($800)', ps: prevMgmt, pt: (v: any) => validateAndSetDates('mgmt', 'prev', v), ns: nextMgmt, nt: (v: any) => validateAndSetDates('mgmt', 'next', v), color: 'indigo', error: mgmtError },
+              { l: '機車停車費', ps: prevMoto, pt: (v: any) => validateAndSetDates('moto', 'prev', v), ns: nextMoto, nt: (v: any) => validateAndSetDates('moto', 'next', v), color: 'purple', error: motoError },
+              { l: '汽車停車費', ps: prevCar, pt: (v: any) => validateAndSetDates('car', 'prev', v), ns: nextCar, nt: (v: any) => validateAndSetDates('car', 'next', v), color: 'blue', error: carError },
             ].map((item, i) => (
-              <div key={i} className={`p-6 bg-${item.color}-50/30 rounded-2xl border-2 border-${item.color}-100 grid grid-cols-1 md:grid-cols-2 gap-8`}>
+              <div key={i} className={`p-6 bg-${item.color}-50/30 rounded-2xl border-2 ${item.error ? 'border-red-400 bg-red-50' : `border-${item.color}-100`} grid grid-cols-1 md:grid-cols-2 gap-8 relative`}>
+                {item.error && (
+                  <div className="md:col-span-2 bg-red-600 text-white text-xs py-2 px-4 rounded-lg font-black animate-pulse flex items-center gap-2">
+                    ⚠️ 設定時間設定錯誤, "繳費結算年月"要等於或晚於"繳費起算年月", 或"繳費起算年月"要等於或早於"繳費結算年月"
+                  </div>
+                )}
                 <div>
-                  <p className="text-sm font-black text-gray-600 mb-2">{item.l}：繳費起算年月</p>
+                  <p className={`text-sm font-black mb-2 ${item.error ? 'text-red-700' : 'text-gray-600'}`}>{item.l}：繳費起算年月</p>
                   <div className="flex gap-2">
-                    <input type="number" value={item.ps.y} onChange={e => item.pt({ ...item.ps, y: Number(e.target.value) })} className="w-2/3 p-4 border rounded-xl text-xl font-bold" />
-                    <input type="number" value={item.ps.m} onChange={e => item.pt({ ...item.ps, m: Number(e.target.value) })} className="w-1/3 p-4 border rounded-xl text-xl font-bold" min="1" max="12" />
+                    <input type="number" value={item.ps.y} onChange={e => item.pt({ ...item.ps, y: Number(e.target.value) })} className={`w-2/3 p-4 border rounded-xl text-xl font-bold ${item.error ? 'border-red-500 bg-red-50 text-red-700' : 'border-gray-200'}`} />
+                    <input type="number" value={item.ps.m} onChange={e => item.pt({ ...item.ps, m: Number(e.target.value) })} className={`w-1/3 p-4 border rounded-xl text-xl font-bold ${item.error ? 'border-red-500 bg-red-50 text-red-700' : 'border-gray-200'}`} min="1" max="12" />
                   </div>
                 </div>
                 <div>
-                  <p className="text-sm font-black text-gray-600 mb-2">{item.l}：繳費結算年月</p>
+                  <p className={`text-sm font-black mb-2 ${item.error ? 'text-red-700' : 'text-gray-600'}`}>{item.l}：繳費結算年月</p>
                   <div className="flex gap-2">
-                    <input type="number" value={item.ns.y} onChange={e => item.nt({ ...item.ns, y: Number(e.target.value) })} className="w-2/3 p-4 border rounded-xl text-xl font-bold" />
-                    <input type="number" value={item.ns.m} onChange={e => item.nt({ ...item.ns, m: Number(e.target.value) })} className="w-1/3 p-4 border rounded-xl text-xl font-bold" min="1" max="12" />
+                    <input type="number" value={item.ns.y} onChange={e => item.nt({ ...item.ns, y: Number(e.target.value) })} className={`w-2/3 p-4 border rounded-xl text-xl font-bold ${item.error ? 'border-red-500 bg-red-50 text-red-700' : 'border-gray-200'}`} />
+                    <input type="number" value={item.ns.m} onChange={e => item.nt({ ...item.ns, m: Number(e.target.value) })} className={`w-1/3 p-4 border rounded-xl text-xl font-bold ${item.error ? 'border-red-500 bg-red-50 text-red-700' : 'border-gray-200'}`} min="1" max="12" />
                   </div>
                 </div>
               </div>
