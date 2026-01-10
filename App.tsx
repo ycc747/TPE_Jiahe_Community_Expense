@@ -12,15 +12,15 @@ const App: React.FC = () => {
 
   // Initialize residents data
   useEffect(() => {
-    const savedResidents = localStorage.getItem('jiahe_residents');
-    if (savedResidents) {
-      setResidents(JSON.parse(savedResidents));
-    } else {
-      const initialResidents: Resident[] = [];
-      ADDRESS_NUMBERS.forEach(num => {
-        for (let floor = 1; floor <= 10; floor++) {
+    const savedResidents: Resident[] = JSON.parse(localStorage.getItem('jiahe_residents') || '[]');
+    const initialResidents: Resident[] = [...savedResidents];
+
+    ADDRESS_NUMBERS.forEach(num => {
+      for (let floor = 1; floor <= 10; floor++) {
+        const id = `${num}-${floor}`;
+        if (!initialResidents.find(r => r.id === id)) {
           initialResidents.push({
-            id: `${num}-${floor}`,
+            id: id,
             addressNumber: num,
             floor: floor,
             motorcycleParking: 'none',
@@ -29,9 +29,10 @@ const App: React.FC = () => {
             carCount: 0,
           });
         }
-      });
-      setResidents(initialResidents);
-    }
+      }
+    });
+    setResidents(initialResidents);
+    localStorage.setItem('jiahe_residents', JSON.stringify(initialResidents));
 
     const savedPayments = localStorage.getItem('jiahe_payments');
     if (savedPayments) {
@@ -41,9 +42,9 @@ const App: React.FC = () => {
 
   const addPayment = (record: PaymentRecord, updatedResident?: Resident) => {
     // Check if this is an override of an existing record (same resident + year + month)
-    const existingIndex = payments.findIndex(p => 
-      p.residentId === record.residentId && 
-      p.year === record.year && 
+    const existingIndex = payments.findIndex(p =>
+      p.residentId === record.residentId &&
+      p.year === record.year &&
       p.month === record.month
     );
 
@@ -59,7 +60,7 @@ const App: React.FC = () => {
 
     setPayments(updatedPayments);
     localStorage.setItem('jiahe_payments', JSON.stringify(updatedPayments));
-    
+
     if (updatedResident) {
       const updatedResidents = residents.map(r => r.id === updatedResident.id ? updatedResident : r);
       setResidents(updatedResidents);
@@ -100,9 +101,9 @@ const App: React.FC = () => {
 
         <div className="print-only">
           {payments.length > 0 && (
-            <Receipt 
-              record={payments[payments.length - 1]} 
-              resident={residents.find(r => r.id === payments[payments.length - 1].residentId)!} 
+            <Receipt
+              record={payments[payments.length - 1]}
+              resident={residents.find(r => r.id === payments[payments.length - 1].residentId)!}
             />
           )}
         </div>

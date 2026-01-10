@@ -17,15 +17,15 @@ const ResidentPortal: React.FC<Props> = ({ residents, payments }) => {
 
   // Valid options
   const aaOptions = ['13', '15', '17', '19', '21', '23'];
-  const bOptions = ['', '1'];
+  const bOptions = ['', '1', '2', '3'];
   const cOptions = Array.from({ length: 10 }, (_, i) => (i + 1).toString());
 
   useEffect(() => {
     const month = new Date().getMonth();
     const isFirstHalf = month < 6;
-    const imageUrl = isFirstHalf 
-      ? 'https://images.unsplash.com/photo-1490750967868-88aa4486c946?auto=format&fit=crop&q=80&w=1920' 
-      : 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&q=80&w=1920'; 
+    const imageUrl = isFirstHalf
+      ? 'https://images.unsplash.com/photo-1490750967868-88aa4486c946?auto=format&fit=crop&q=80&w=1920'
+      : 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&q=80&w=1920';
     setBgImage(imageUrl);
   }, []);
 
@@ -35,7 +35,7 @@ const ResidentPortal: React.FC<Props> = ({ residents, payments }) => {
       setError('正確範例：請選擇完整的號碼與樓層');
       return;
     }
-    const addressPart = b === '1' ? `${aa}-1` : `${aa}`;
+    const addressPart = b ? `${aa}-${b}` : `${aa}`;
     const normalized = `${addressPart}-${c}`;
     setActiveSearch(normalized);
   };
@@ -44,7 +44,7 @@ const ResidentPortal: React.FC<Props> = ({ residents, payments }) => {
   const hasSearchResult = activeSearch !== '' && filteredResidents.length > 0;
 
   return (
-    <div 
+    <div
       className="min-h-[80vh] rounded-3xl overflow-hidden relative flex items-center justify-center p-4 transition-all duration-1000 bg-cover bg-center no-print"
       style={{ backgroundImage: `url(${bgImage})` }}
     >
@@ -92,8 +92,8 @@ const ResidentPortal: React.FC<Props> = ({ residents, payments }) => {
               </select>
               <span>樓</span>
             </div>
-            
-            <button 
+
+            <button
               onClick={validateAndSearch}
               className="w-full sm:w-64 bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-4 rounded-2xl font-bold transition-all shadow-lg active:scale-95"
             >
@@ -115,7 +115,7 @@ const ResidentPortal: React.FC<Props> = ({ residents, payments }) => {
                         <span>{resident.addressNumber}號 {resident.floor}樓 明細</span>
                         <span className="text-xs text-indigo-500 font-bold">歷史紀錄 ({residentPayments.length})</span>
                       </h4>
-                      
+
                       {residentPayments.length > 0 ? (
                         <div className="space-y-4">
                           {residentPayments.map((p, idx) => (
