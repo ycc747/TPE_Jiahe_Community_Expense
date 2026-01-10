@@ -17,8 +17,16 @@ const ResidentPortal: React.FC<Props> = ({ residents, payments }) => {
 
   // Valid options
   const aaOptions = ['13', '15', '17', '19', '21', '23'];
-  const bOptions = ['', '1', '2', '3'];
+  // Dynamic suffix options based on the main address number
+  const bOptions = (aa === '21' || aa === '23') ? ['', '1', '2', '3'] : ['', '1'];
   const cOptions = Array.from({ length: 10 }, (_, i) => (i + 1).toString());
+
+  // Automatically reset the suffix if it's invalid for the current main address
+  useEffect(() => {
+    if (!bOptions.includes(b)) {
+      setB('');
+    }
+  }, [aa]);
 
   useEffect(() => {
     const month = new Date().getMonth();
