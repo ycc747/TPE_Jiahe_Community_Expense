@@ -15,6 +15,7 @@ const AppContent: React.FC = () => {
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [needsAddressRegistration, setNeedsAddressRegistration] = useState(false);
+  const [printData, setPrintData] = useState<{ record: PaymentRecord; resident: Resident } | null>(null);
   const navigate = useNavigate();
 
   // Check login status
@@ -80,13 +81,14 @@ const AppContent: React.FC = () => {
     setPayments(newPayments);
     localStorage.setItem('jiahe_payments', JSON.stringify(newPayments));
 
-    if (updatedResident) {
-      const newResidents = residents.map(r =>
-        r.id === updatedResident.id ? updatedResident : r
-      );
-      setResidents(newResidents);
-      localStorage.setItem('jiahe_residents', JSON.stringify(newResidents));
-    }
+    const updatedResidents = residents.map(r =>
+      updatedResident && r.id === updatedResident.id ? updatedResident : r
+    );
+    setResidents(updatedResidents);
+    localStorage.setItem('jiahe_residents', JSON.stringify(updatedResidents));
+
+    // Set data for the hidden printing component
+    setPrintData({ record, resident: updatedResident || residents.find(r => r.id === record.residentId)! });
 
     // Trigger print and redirect to admin with success message
     setTimeout(() => {
@@ -191,6 +193,17 @@ const AppContent: React.FC = () => {
         </div>
       </nav>
 
+      {/* Global Hidden Printing Component */}
+      {printData && (
+        <div className="print-only">
+          <Receipt
+            record={printData.record}
+            resident={printData.resident}
+            operatorName={currentUser?.username}
+          />
+        </div>
+      )}
+
       {/* Main Content */}
       <div className="container mx-auto p-4 md:p-8">
         <Routes>
@@ -236,6 +249,7 @@ const AppContent: React.FC = () => {
                 <Receipt
                   record={payments[payments.length - 1]}
                   resident={residents.find(r => r.id === payments[payments.length - 1]?.residentId)!}
+                  operatorName={currentUser?.username}
                 />
               ) : (
                 <Navigate to="/" replace />

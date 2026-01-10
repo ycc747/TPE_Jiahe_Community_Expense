@@ -203,6 +203,63 @@ const AdminPortal: React.FC<Props> = ({ residents, payments, onPaymentSubmit, cu
     setIsPreview(false);
   };
 
+  const parseYM = (s: string) => {
+    const [y, m] = s.split('-').map(Number);
+    return { y, m };
+  };
+
+  const isResidentPaidForMonth = (resId: string, targetTable: { y: number, m: number }) => {
+    return payments.some(p => {
+      if (p.residentId !== resId) return false;
+      const start = parseYM(p.prevManagementStart);
+      const end = parseYM(p.nextManagementStart);
+      return isBeforeOrEqual(start, targetTable) && isBeforeOrEqual(targetTable, end);
+    });
+  };
+
+  const downloadCSV = (filename: string, content: string) => {
+    const blob = new Blob(["\uFEFF" + content], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", filename);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const exportPaidReport = () => {
+    const target = { y: initialY, m: initialM };
+    const paidList = residents.filter(r => isResidentPaidForMonth(r.id, target));
+
+    let csvContent = "門號,樓層,狀態,繳費金額\n";
+    paidList.forEach(r => {
+      const p = payments.find(pay => pay.residentId === r.id && parseYM(pay.prevManagementStart).y === target.y && parseYM(pay.prevManagementStart).m === target.m);
+      csvContent += `${r.addressNumber},${r.floor},已繳費,${p?.total || ''}\n`;
+    });
+
+    downloadCSV(`嘉禾社區_${target.y}_${target.m}_已繳費名單.csv`, csvContent);
+  };
+
+  const exportUnpaidReport = () => {
+    let lastY = initialY;
+    let lastM = initialM - 1;
+    if (lastM === 0) {
+      lastM = 12;
+      lastY -= 1;
+    }
+    const target = { y: lastY, m: lastM };
+    const unpaidList = residents.filter(r => !isResidentPaidForMonth(r.id, target));
+
+    let csvContent = "門號,樓層,狀態,欠繳月份\n";
+    unpaidList.forEach(r => {
+      csvContent += `${r.addressNumber},${r.floor},欠繳,${target.y}-${target.m}\n`;
+    });
+
+    downloadCSV(`嘉禾社區_${target.y}_${target.m}_欠繳名單.csv`, csvContent);
+  };
+
   if (isPreview) {
     return (
       <div className="max-w-7xl mx-auto">
@@ -431,25 +488,41 @@ const AdminPortal: React.FC<Props> = ({ residents, payments, onPaymentSubmit, cu
         </div>
 
         <div className="space-y-6">
-          <div className="bg-gray-900 text-white p-8 rounded-3xl shadow-xl sticky top-8">
-            <h3 className="font-bold border-b border-gray-700 pb-2 mb-4 text-xs text-gray-400">即時費用計算</h3>
-            <div className="space-y-4">
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-gray-400">管理費 ({fees.mgmtMonths}月):</span>
-                <span className="font-mono font-bold">${fees.management}</span>
-              </div>
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-gray-400">機車費 ({fees.motoMonths}月):</span>
-                <span className="font-mono font-bold">${fees.motorcycle}</span>
-              </div>
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-gray-400">汽車費 ({fees.carMonths}月):</span>
-                <span className="font-mono font-bold">${fees.car}</span>
-              </div>
-              <div className="flex justify-between text-3xl font-black text-yellow-400 border-t border-gray-700 pt-6 mt-4">
-                <span>總額</span>
-                <span>${fees.total}</span>
-              </div>
+          <div className="bg-white p-8 rounded-3xl shadow-xl border-2 border-green-100">
+            <h3 className="font-bold text-green-900 mb-6 flex items-center gap-2">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              報表匯出中心
+            </h3>
+            <div className="grid grid-cols-1 gap-4">
+              <button
+                onClick={exportPaidReport}
+                className="flex items-center justify-between p-4 bg-green-50 hover:bg-green-100 text-green-700 rounded-2xl transition-all border border-green-200 group"
+              >
+                <div className="text-left">
+                  <p className="font-black text-sm">匯出本月已繳名單</p>
+                  <p className="text-[10px] opacity-70 font-bold">{initialY}年{initialM}月</p>
+                </div>
+                <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+              </button>
+
+              <button
+                onClick={exportUnpaidReport}
+                className="flex items-center justify-between p-4 bg-red-50 hover:bg-red-100 text-red-700 rounded-2xl transition-all border border-red-200 group"
+              >
+                <div className="text-left">
+                  <p className="font-black text-sm">匯出上月欠繳名單</p>
+                  <p className="text-[10px] opacity-70 font-bold">
+                    {initialM === 1 ? initialY - 1 : initialY}年{initialM === 1 ? 12 : initialM - 1}月
+                  </p>
+                </div>
+                <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+              </button>
             </div>
           </div>
         </div>

@@ -5,9 +5,10 @@ import { PaymentRecord, Resident } from '../types';
 interface Props {
   record: PaymentRecord;
   resident: Resident;
+  operatorName?: string;
 }
 
-const Receipt: React.FC<Props> = ({ record, resident }) => {
+const Receipt: React.FC<Props> = ({ record, resident, operatorName }) => {
   return (
     <div className="p-12 border-8 border-double border-gray-900 bg-white max-w-2xl mx-auto my-8 font-serif print-only">
       <div className="text-center mb-10">
@@ -18,6 +19,7 @@ const Receipt: React.FC<Props> = ({ record, resident }) => {
       <div className="flex justify-between mb-8 text-xl">
         <div className="space-y-1">
           <p><span className="font-bold">住戶編號：</span>{resident.addressNumber} 號 {resident.floor} 樓</p>
+          <p><span className="font-bold">經辦帳號：</span>{operatorName || '系統預設'}</p>
         </div>
         <div className="text-right">
           <p><span className="font-bold">列印日期：</span>{new Date(record.paidAt).toLocaleDateString()}</p>
