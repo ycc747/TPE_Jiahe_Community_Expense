@@ -88,7 +88,13 @@ const AppContent: React.FC = () => {
       localStorage.setItem('jiahe_residents', JSON.stringify(newResidents));
     }
 
-    navigate('/receipt');
+    // Trigger print and redirect to admin with success message
+    setTimeout(() => {
+      window.print();
+      setTimeout(() => {
+        navigate('/admin', { state: { lastPayment: record, lastResident: updatedResident } });
+      }, 500);
+    }, 300);
   };
 
   const handleLoginSuccess = () => {
@@ -226,10 +232,14 @@ const AppContent: React.FC = () => {
           <Route
             path="/receipt"
             element={
-              <Receipt
-                payment={payments[payments.length - 1]}
-                resident={residents.find(r => r.id === payments[payments.length - 1]?.residentId)}
-              />
+              payments.length > 0 ? (
+                <Receipt
+                  record={payments[payments.length - 1]}
+                  resident={residents.find(r => r.id === payments[payments.length - 1]?.residentId)!}
+                />
+              ) : (
+                <Navigate to="/" replace />
+              )
             }
           />
           <Route
