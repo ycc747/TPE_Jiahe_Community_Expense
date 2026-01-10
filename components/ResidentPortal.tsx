@@ -1,13 +1,14 @@
 
 import React, { useState, useEffect } from 'react';
-import { Resident, PaymentRecord } from '../types';
+import { Resident, PaymentRecord, User } from '../types';
 
 interface Props {
   residents: Resident[];
   payments: PaymentRecord[];
+  currentUser: User;
 }
 
-const ResidentPortal: React.FC<Props> = ({ residents, payments }) => {
+const ResidentPortal: React.FC<Props> = ({ residents, payments, currentUser }) => {
   const [aa, setAa] = useState('');
   const [b, setB] = useState('');
   const [c, setC] = useState('');

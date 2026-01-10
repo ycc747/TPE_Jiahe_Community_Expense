@@ -38,3 +38,36 @@ export const ADDRESS_NUMBERS = [
   "13", "13-1", "15", "15-1", "17", "17-1",
   "19", "19-1", "21", "21-1", "21-2", "21-3", "23", "23-1", "23-2", "23-3"
 ];
+
+// ===== Authentication & Authorization Types =====
+
+export type UserRole = 'EXT' | 'KEEP' | 'MGR' | 'ADMIN';
+
+export type ApprovalStatus = 'pending' | 'approved' | 'rejected';
+
+export interface User {
+  id: string; // Unique user ID
+  username: string;
+  passwordHash: string; // Hashed password
+  role: UserRole;
+  registeredAddresses: string[]; // Array of resident IDs (e.g., ["13-1-5", "21-2-3"])
+  createdAt: string; // ISO date string
+}
+
+export interface AddressRegistration {
+  id: string; // Unique registration ID
+  userId: string;
+  residentId: string; // e.g., "13-1-5"
+  status: ApprovalStatus;
+  requestedAt: string; // ISO date string
+  approvedBy?: string; // User ID of approver (KEEP/MGR/ADMIN)
+  approvedAt?: string; // ISO date string
+}
+
+export interface FeeConfig {
+  management: number;
+  motorcycle: { small: number; large: number };
+  car: { small: number; large: number };
+  lastModifiedBy?: string; // User ID (only MGR can modify)
+  lastModifiedAt?: string; // ISO date string
+}
