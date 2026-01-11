@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>嘉禾社區管理系統</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @media print {
+      @page {
+        size: auto;
+        margin: 0mm;
+      }
+
+      .no-print {
+        display: none !important;
+      }
+
+      .print-only {
+        display: block !important;
+        width: 100% !important;
+        height: auto !important;
+        margin: 0 !important;
+        padding: 1cm !important;
+        page-break-inside: avoid !important;
+      }
+
+      body {
+        background: white !important;
+        color: black !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+    }
+
+    .print-only {
+      display: none;
+    }
+  </style>
+  <script type="module" crossorigin src="/TPE_Jiahe_Community_Expense/release/assets/index-Dt4ziljI.js"></script>
+</head>
+
+<body class="bg-gray-50 text-gray-900">
+  <div id="root"></div>
+</body>
+
+</html>
