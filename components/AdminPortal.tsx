@@ -1,7 +1,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Resident, PaymentRecord, FEE_CONFIG, User } from '../types';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import { Resident, PaymentRecord, User, FeeConfig, DEFAULT_FEE_CONFIG } from '../types';
+import { getFeeConfig, saveFeeConfig } from '../utils/auth';
 
 interface Props {
   residents: Resident[];
@@ -15,6 +18,120 @@ interface ParkingConfig {
   smallCount: number;
   largeCount: number;
 }
+
+const Calculator: React.FC<{
+  residents: Resident[];
+  feeConfig: FeeConfig;
+  selectedResidentId: string;
+  dates: {
+    mgmt: { start: { y: number, m: number }, end: { y: number, m: number } };
+    moto: { start: { y: number, m: number }, end: { y: number, m: number } };
+    car: { start: { y: number, m: number }, end: { y: number, m: number } };
+  };
+  parking: {
+    moto: ParkingConfig;
+    car: ParkingConfig;
+  };
+  errors: {
+    mgmt: boolean;
+    moto: boolean;
+    car: boolean;
+  };
+  getMonthDiffInclusive: (start: { y: number, m: number }, end: { y: number, m: number }) => number;
+}> = ({ residents, feeConfig, selectedResidentId, dates, parking, errors, getMonthDiffInclusive }) => {
+
+  const calculateFees = () => {
+    const mgmtMonths = getMonthDiffInclusive(dates.mgmt.start, dates.mgmt.end);
+    const motoMonths = getMonthDiffInclusive(dates.moto.start, dates.moto.end);
+    const carMonths = getMonthDiffInclusive(dates.car.start, dates.car.end);
+
+    const mgmtTotal = feeConfig.management * mgmtMonths;
+    const motoTotal = ((parking.moto.smallCount * feeConfig.motorcycle.small) + (parking.moto.largeCount * feeConfig.motorcycle.large)) * motoMonths;
+    const carTotal = ((parking.car.smallCount * feeConfig.car.small) + (parking.car.largeCount * feeConfig.car.large)) * carMonths;
+
+    return {
+      management: mgmtTotal,
+      motorcycle: motoTotal,
+      car: carTotal,
+      total: mgmtTotal + motoTotal + carTotal,
+      mgmtMonths, motoMonths, carMonths
+    };
+  };
+
+  const fees = calculateFees();
+  const selectedResident = residents.find(r => r.id === selectedResidentId);
+
+  return (
+    <div className="bg-gray-900 text-white p-6 rounded-3xl shadow-xl border border-gray-800">
+      <div className="flex justify-between items-center mb-6">
+        <h3 className="text-xl font-black">即時費用計算</h3>
+        <span className="text-xs text-green-400 font-bold bg-green-900/30 px-2 py-1 rounded-lg border border-green-800">Live Preview</span>
+      </div>
+
+      <div className="mb-6 p-4 bg-gray-800 rounded-2xl border border-gray-700">
+        <label className="block text-xs font-bold text-gray-500 mb-1">目前選擇住戶</label>
+        <div className="text-lg font-black text-white">
+          {selectedResident ? `${selectedResident.addressNumber}號 ${selectedResident.floor}樓` : <span className="text-gray-600">-- 未選擇 --</span>}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 mb-6">
+        <div className="p-4 bg-gray-800/50 rounded-2xl border border-gray-700">
+          <div className="flex justify-between items-center mb-2">
+            <h4 className="font-bold text-gray-300 text-sm">租用概況</h4>
+          </div>
+          <div className="flex justify-between text-sm mb-1">
+            <span className="text-gray-400">機車 (小{parking.moto.smallCount}/大{parking.moto.largeCount})</span>
+            <span className="font-bold text-white">${fees.motorcycle}</span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-gray-400">汽車 (小{parking.car.smallCount}/大{parking.car.largeCount})</span>
+            <span className="font-bold text-white">${fees.car}</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-3 border-t border-gray-800 pt-4">
+        <div className="flex justify-between items-center text-sm">
+          <span className={`font-bold ${errors.mgmt ? 'text-red-400' : 'text-gray-400'}`}>
+            管理費 {errors.mgmt && '(!)'}
+          </span>
+          <div className="text-right">
+            <span className="block font-mono font-bold">${fees.management}</span>
+            <span className="text-xs text-gray-600">{fees.mgmtMonths} 個月</span>
+          </div>
+        </div>
+        <div className="flex justify-between items-center text-sm">
+          <span className={`font-bold ${errors.moto ? 'text-red-400' : 'text-gray-400'}`}>
+            機車費 {errors.moto && '(!)'}
+          </span>
+          <div className="text-right">
+            <span className="block font-mono font-bold">${fees.motorcycle}</span>
+            <span className="text-xs text-gray-600">{fees.motoMonths} 個月</span>
+          </div>
+        </div>
+        <div className="flex justify-between items-center text-sm">
+          <span className={`font-bold ${errors.car ? 'text-red-400' : 'text-gray-400'}`}>
+            汽車費 {errors.car && '(!)'}
+          </span>
+          <div className="text-right">
+            <span className="block font-mono font-bold">${fees.car}</span>
+            <span className="text-xs text-gray-600">{fees.carMonths} 個月</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-6 pt-6 border-t border-gray-700">
+        <div className="flex justify-between items-end">
+          <span className="text-gray-400 font-bold">總計 Total</span>
+          <span className="text-3xl font-black text-green-400 shadow-green-900/20 drop-shadow-lg">
+            ${fees.total.toLocaleString()}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const AdminPortal: React.FC<Props> = ({ residents, payments, onPaymentSubmit, currentUser }) => {
   const location = useLocation();
@@ -38,6 +155,11 @@ const AdminPortal: React.FC<Props> = ({ residents, payments, onPaymentSubmit, cu
 
   const [motoConfig, setMotoConfig] = useState<ParkingConfig>({ smallCount: 0, largeCount: 0 });
   const [carConfig, setCarConfig] = useState<ParkingConfig>({ smallCount: 0, largeCount: 0 });
+  const [feeConfig, setFeeConfig] = useState<FeeConfig>(DEFAULT_FEE_CONFIG);
+
+  useEffect(() => {
+    setFeeConfig(getFeeConfig());
+  }, []);
 
   const [mgmtError, setMgmtError] = useState(false);
   const [motoError, setMotoError] = useState(false);
@@ -126,12 +248,46 @@ const AdminPortal: React.FC<Props> = ({ residents, payments, onPaymentSubmit, cu
     const currentYM = { y: initialY, m: initialM };
 
     // Auto-update if current time is past the previous "next" date
-    // We fetch the current values from state or props if persisted, 
-    // but here we check against the initial defaults/state.
     if (!isBeforeOrEqual(currentYM, nextMgmt)) setPrevMgmt(currentYM);
     if (!isBeforeOrEqual(currentYM, nextMoto)) setPrevMoto(currentYM);
     if (!isBeforeOrEqual(currentYM, nextCar)) setPrevCar(currentYM);
   }, []);
+
+  // Auto-fill parking spaces and payment periods when resident is selected
+  useEffect(() => {
+    const currentYM = { y: initialY, m: initialM };
+
+    if (selectedResidentId) {
+      const resident = residents.find(r => r.id === selectedResidentId);
+
+      // Load parking config
+      if (resident?.lastParkingConfig) {
+        setMotoConfig(resident.lastParkingConfig.moto);
+        setCarConfig(resident.lastParkingConfig.car);
+      } else {
+        setMotoConfig({ smallCount: 0, largeCount: 0 });
+        setCarConfig({ smallCount: 0, largeCount: 0 });
+      }
+
+      // Load payment period dates
+      if (resident?.lastPaymentPeriods) {
+        setPrevMgmt(resident.lastPaymentPeriods.mgmt.prev);
+        setNextMgmt(resident.lastPaymentPeriods.mgmt.next);
+        setPrevMoto(resident.lastPaymentPeriods.moto.prev);
+        setNextMoto(resident.lastPaymentPeriods.moto.next);
+        setPrevCar(resident.lastPaymentPeriods.car.prev);
+        setNextCar(resident.lastPaymentPeriods.car.next);
+      } else {
+        // Reset to current date if no previous periods
+        setPrevMgmt(currentYM);
+        setNextMgmt(currentYM);
+        setPrevMoto(currentYM);
+        setNextMoto(currentYM);
+        setPrevCar(currentYM);
+        setNextCar(currentYM);
+      }
+    }
+  }, [selectedResidentId, residents]);
 
   const [isPreview, setIsPreview] = useState(false);
   const [isChairmanMode, setIsChairmanMode] = useState(false);
@@ -153,9 +309,9 @@ const AdminPortal: React.FC<Props> = ({ residents, payments, onPaymentSubmit, cu
     const motoMonths = getMonthDiffInclusive(prevMoto, nextMoto);
     const carMonths = getMonthDiffInclusive(prevCar, nextCar);
 
-    const mgmtTotal = FEE_CONFIG.MANAGEMENT * mgmtMonths;
-    const motoTotal = ((motoConfig.smallCount * FEE_CONFIG.MOTORCYCLE.small) + (motoConfig.largeCount * FEE_CONFIG.MOTORCYCLE.large)) * motoMonths;
-    const carTotal = ((carConfig.smallCount * FEE_CONFIG.CAR.small) + (carConfig.largeCount * FEE_CONFIG.CAR.large)) * carMonths;
+    const mgmtTotal = feeConfig.management * mgmtMonths;
+    const motoTotal = ((motoConfig.smallCount * feeConfig.motorcycle.small) + (motoConfig.largeCount * feeConfig.motorcycle.large)) * motoMonths;
+    const carTotal = ((carConfig.smallCount * feeConfig.car.small) + (carConfig.largeCount * feeConfig.car.large)) * carMonths;
 
     return {
       management: mgmtTotal,
@@ -196,7 +352,16 @@ const AdminPortal: React.FC<Props> = ({ residents, payments, onPaymentSubmit, cu
       motorcycleCount: motoConfig.smallCount + motoConfig.largeCount,
       carCount: carConfig.smallCount + carConfig.largeCount,
       motorcycleParking: motoConfig.largeCount > 0 ? 'large' : (motoConfig.smallCount > 0 ? 'small' : 'none'),
-      carParking: carConfig.largeCount > 0 ? 'large' : (carConfig.smallCount > 0 ? 'small' : 'none')
+      carParking: carConfig.largeCount > 0 ? 'large' : (carConfig.smallCount > 0 ? 'small' : 'none'),
+      lastParkingConfig: {
+        moto: { ...motoConfig },
+        car: { ...carConfig }
+      },
+      lastPaymentPeriods: {
+        mgmt: { prev: { ...prevMgmt }, next: { ...nextMgmt } },
+        moto: { prev: { ...prevMoto }, next: { ...nextMoto } },
+        car: { prev: { ...prevCar }, next: { ...nextCar } }
+      }
     };
 
     onPaymentSubmit(newRecord, updatedResident);
@@ -204,7 +369,10 @@ const AdminPortal: React.FC<Props> = ({ residents, payments, onPaymentSubmit, cu
   };
 
   const parseYM = (s: string) => {
-    const [y, m] = s.split('-').map(Number);
+    if (!s) return { y: 0, m: 0 };
+    const parts = s.split('-');
+    if (parts.length < 2) return { y: 0, m: 0 };
+    const [y, m] = parts.map(Number);
     return { y, m };
   };
 
@@ -217,53 +385,139 @@ const AdminPortal: React.FC<Props> = ({ residents, payments, onPaymentSubmit, cu
     });
   };
 
-  const downloadCSV = (filename: string, content: string) => {
-    const blob = new Blob(["\uFEFF" + content], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute("download", filename);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
+  const [isExporting, setIsExporting] = useState(false);
 
-  const exportPaidReport = () => {
-    const target = { y: initialY, m: initialM };
-    const paidList = residents.filter(r => isResidentPaidForMonth(r.id, target));
 
-    let csvContent = "門號,樓層,狀態,繳費金額\n";
-    paidList.forEach(r => {
-      const p = payments.find(pay => pay.residentId === r.id && parseYM(pay.prevManagementStart).y === target.y && parseYM(pay.prevManagementStart).m === target.m);
-      csvContent += `${r.addressNumber},${r.floor},已繳費,${p?.total || ''}\n`;
+
+  const generatePDF = async (filename: string, title: string, subtitle: string, headers: string[], data: string[][]) => {
+    const doc = new jsPDF();
+
+    // Title
+    doc.setFontSize(20);
+    doc.text(title, 105, 15, { align: 'center' });
+
+    // Subtitle
+    doc.setFontSize(12);
+    doc.setTextColor(100);
+    doc.text(subtitle, 105, 22, { align: 'center' });
+
+    // Table
+    autoTable(doc, {
+      head: [headers],
+      body: data,
+      startY: 30,
+      headStyles: { fillColor: [66, 66, 66] },
     });
 
-    downloadCSV(`嘉禾社區_${target.y}_${target.m}_已繳費名單.csv`, csvContent);
+    // Use doc.save() for proper Chinese filename support
+    doc.save(filename);
   };
 
-  const exportUnpaidReport = () => {
-    let lastY = initialY;
-    let lastM = initialM - 1;
-    if (lastM === 0) {
-      lastM = 12;
-      lastY -= 1;
+  const exportPaidReport = async () => {
+    setIsExporting(true);
+    try {
+      const target = { y: initialY, m: initialM };
+      const paidList = residents.filter(r => isResidentPaidForMonth(r.id, target));
+
+      const headers = ["Address", "Floor", "Mgmt", "Moto", "Car", "Total (NT$)"];
+      const data = paidList.map(r => {
+        const p = payments.find(pay => {
+          if (pay.residentId !== r.id) return false;
+          const start = parseYM(pay.prevManagementStart);
+          const end = parseYM(pay.nextManagementStart);
+          return isBeforeOrEqual(start, target) && isBeforeOrEqual(target, end);
+        });
+
+        return [
+          r.addressNumber,
+          r.floor.toString(),
+          p && p.managementFee > 0 ? "Y" : "-",
+          p && p.motorcycleFee > 0 ? "Y" : "-",
+          p && p.carFee > 0 ? "Y" : "-",
+          p?.total?.toLocaleString() || ""
+        ];
+      });
+
+      await generatePDF(
+        `嘉禾社區_${target.y}年${target.m}月_已繳費名單.pdf`,
+        "Jiahe Community - Paid List",
+        `Period: ${target.y}/${target.m}`,
+        headers,
+        data
+      );
+    } catch (error) {
+      console.error("PDF 匯出失敗", error);
+      alert("PDF 匯出失敗，請再試一次。");
+    } finally {
+      setIsExporting(false);
     }
-    const target = { y: lastY, m: lastM };
-    const unpaidList = residents.filter(r => !isResidentPaidForMonth(r.id, target));
+  };
 
-    let csvContent = "門號,樓層,狀態,欠繳月份\n";
-    unpaidList.forEach(r => {
-      csvContent += `${r.addressNumber},${r.floor},欠繳,${target.y}-${target.m}\n`;
-    });
+  const exportUnpaidReport = async () => {
+    setIsExporting(true);
+    try {
+      const current = { y: initialY, m: initialM };
+      let lastY = initialY;
+      let lastM = initialM - 1;
+      if (lastM === 0) {
+        lastM = 12;
+        lastY -= 1;
+      }
+      const last = { y: lastY, m: lastM };
 
-    downloadCSV(`嘉禾社區_${target.y}_${target.m}_欠繳名單.csv`, csvContent);
+      const unpaidList = residents.map(r => {
+        const unpaidMonths = [];
+        if (!isResidentPaidForMonth(r.id, last)) unpaidMonths.push(`${last.y}-${last.m.toString().padStart(2, '0')}`);
+        if (!isResidentPaidForMonth(r.id, current)) unpaidMonths.push(`${current.y}-${current.m.toString().padStart(2, '0')}`);
+
+        return unpaidMonths.length > 0 ? { resident: r, months: unpaidMonths.join(' & ') } : null;
+      }).filter(item => item !== null) as { resident: Resident, months: string }[];
+
+      const headers = ["Address", "Floor", "Mgmt", "Moto", "Car", "Months"];
+      const data = unpaidList.map(item => {
+        const resident = item.resident;
+
+        // Find payment record for current period
+        const payment = payments.find(p => {
+          if (p.residentId !== resident.id) return false;
+          const start = parseYM(p.prevManagementStart);
+          const end = parseYM(p.nextManagementStart);
+          return isBeforeOrEqual(start, current) && isBeforeOrEqual(current, end);
+        });
+
+        // Determine unpaid status for each item
+        const mgmtPaid = payment && payment.managementFee > 0;
+        const motoPaid = payment && payment.motorcycleFee > 0;
+        const carPaid = payment && payment.carFee > 0;
+
+        return [
+          resident.addressNumber,
+          resident.floor.toString(),
+          mgmtPaid ? "Y" : "N",
+          motoPaid ? "Y" : "N",
+          carPaid ? "Y" : "N",
+          item.months
+        ];
+      });
+
+      await generatePDF(
+        `嘉禾社區_上月至本月欠繳名單_${initialY}年${initialM}月.pdf`,
+        "Jiahe Community - Unpaid List",
+        `Period: ${last.y}/${last.m} - ${current.y}/${current.m}`,
+        headers,
+        data
+      );
+    } catch (error) {
+      console.error("PDF 匯出失敗", error);
+      alert("PDF 匯出失敗，請再試一次。");
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   if (isPreview) {
     return (
       <div className="max-w-7xl mx-auto">
-        {/* Success Banner */}
         {showSuccessBanner && lastPaymentInfo && (
           <div className="mb-6 bg-green-50 border-l-4 border-green-500 p-6 rounded-2xl shadow-lg animate-pulse">
             <div className="flex items-center justify-between">
@@ -366,7 +620,8 @@ const AdminPortal: React.FC<Props> = ({ residents, payments, onPaymentSubmit, cu
         </div>
       )}
 
-      <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-4 gap-8 no-print">
+      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-4 gap-8 no-print">
+        {/* Left Column: Registration */}
         <div className="lg:col-span-3 space-y-6">
           <div className="bg-white p-8 rounded-2xl shadow-xl border border-gray-100">
             <div className="flex justify-between items-center mb-6">
@@ -399,7 +654,7 @@ const AdminPortal: React.FC<Props> = ({ residents, payments, onPaymentSubmit, cu
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
               <div className="p-6 bg-indigo-50 rounded-3xl border border-indigo-100">
-                <h3 className="font-bold text-indigo-900 mb-4 text-lg">🛵 機車租用 (小$100/大$200)</h3>
+                <h3 className="font-bold text-indigo-900 mb-4 text-lg">🛵 機車租用 (小${feeConfig.motorcycle.small}/大${feeConfig.motorcycle.large})</h3>
                 <div className="space-y-4">
                   <div className="flex justify-between items-center bg-white p-4 rounded-xl">
                     <span className="font-bold">小車位</span>
@@ -421,7 +676,7 @@ const AdminPortal: React.FC<Props> = ({ residents, payments, onPaymentSubmit, cu
               </div>
 
               <div className="p-6 bg-blue-50 rounded-3xl border border-blue-100">
-                <h3 className="font-bold text-blue-900 mb-4 text-lg">🚗 汽車租用 (小$1200/大$1800)</h3>
+                <h3 className="font-bold text-blue-900 mb-4 text-lg">🚗 汽車租用 (小${feeConfig.car.small}/大${feeConfig.car.large})</h3>
                 <div className="space-y-4">
                   <div className="flex justify-between items-center bg-white p-4 rounded-xl">
                     <span className="font-bold">小車位</span>
@@ -446,14 +701,14 @@ const AdminPortal: React.FC<Props> = ({ residents, payments, onPaymentSubmit, cu
             <div className="space-y-6">
               <h4 className="text-sm font-black text-gray-500 uppercase border-b pb-2">繳費期間設定</h4>
               {[
-                { l: '社區管理費 ($800)', ps: prevMgmt, pt: (v: any) => validateAndSetDates('mgmt', 'prev', v), ns: nextMgmt, nt: (v: any) => validateAndSetDates('mgmt', 'next', v), color: 'indigo', error: mgmtError },
-                { l: '機車停車費', ps: prevMoto, pt: (v: any) => validateAndSetDates('moto', 'prev', v), ns: nextMoto, nt: (v: any) => validateAndSetDates('moto', 'next', v), color: 'purple', error: motoError },
-                { l: '汽車停車費', ps: prevCar, pt: (v: any) => validateAndSetDates('car', 'prev', v), ns: nextCar, nt: (v: any) => validateAndSetDates('car', 'next', v), color: 'blue', error: carError },
+                { l: `社區管理費 ($${feeConfig.management})`, ps: prevMgmt, pt: (v: any) => validateAndSetDates('mgmt', 'prev', v), ns: nextMgmt, nt: (v: any) => validateAndSetDates('mgmt', 'next', v), color: 'indigo', error: mgmtError },
+                { l: `機車停車費 (小$${feeConfig.motorcycle.small}/大$${feeConfig.motorcycle.large})`, ps: prevMoto, pt: (v: any) => validateAndSetDates('moto', 'prev', v), ns: nextMoto, nt: (v: any) => validateAndSetDates('moto', 'next', v), color: 'purple', error: motoError },
+                { l: `汽車停車費 (小$${feeConfig.car.small}/大$${feeConfig.car.large})`, ps: prevCar, pt: (v: any) => validateAndSetDates('car', 'prev', v), ns: nextCar, nt: (v: any) => validateAndSetDates('car', 'next', v), color: 'blue', error: carError },
               ].map((item, i) => (
                 <div key={i} className={`p-6 bg-${item.color}-50/30 rounded-2xl border-2 ${item.error ? 'border-red-400 bg-red-50' : `border-${item.color}-100`} grid grid-cols-1 md:grid-cols-2 gap-8 relative`}>
                   {item.error && (
                     <div className="md:col-span-2 bg-red-600 text-white text-xs py-2 px-4 rounded-lg font-black animate-pulse flex items-center gap-2">
-                      ⚠️ 設定時間設定錯誤, "繳費結算年月"要等於或晚於"繳費起算年月", 或"繳費起算年月"要等於或早於"繳費結算年月"
+                      ⚠️ 設定時間設定錯誤, \"繳費結算年月\"要等於或晚於\"繳費起算年月\", 或\"繳費起算年月\"要等於或早於\"繳費結算年月\"
                     </div>
                   )}
                   <div>
@@ -487,7 +742,108 @@ const AdminPortal: React.FC<Props> = ({ residents, payments, onPaymentSubmit, cu
           </div>
         </div>
 
+        {/* Right Column: Calculator + Fee Config + Reports */}
         <div className="space-y-6">
+          <Calculator
+            residents={residents}
+            feeConfig={feeConfig}
+            selectedResidentId={selectedResidentId}
+            dates={{
+              mgmt: { start: prevMgmt, end: nextMgmt },
+              moto: { start: prevMoto, end: nextMoto },
+              car: { start: prevCar, end: nextCar }
+            }}
+            parking={{
+              moto: motoConfig,
+              car: carConfig
+            }}
+            errors={{
+              mgmt: mgmtError,
+              moto: motoError,
+              car: carError
+            }}
+            getMonthDiffInclusive={getMonthDiffInclusive}
+          />
+
+          {(currentUser.role === 'MGR' || currentUser.role === 'ADMIN') && (
+            <div className="bg-white p-8 rounded-3xl shadow-xl border-2 border-orange-100">
+              <h3 className="font-bold text-orange-900 mb-6 flex items-center gap-2">
+                <span className="text-xl">⚙️</span> 月費設定
+              </h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 mb-1">管理費 (月)</label>
+                  <input
+                    type="number"
+                    value={feeConfig.management}
+                    onChange={(e) => {
+                      const newConfig = { ...feeConfig, management: Number(e.target.value) };
+                      setFeeConfig(newConfig);
+                      saveFeeConfig(newConfig);
+                    }}
+                    className="w-full p-3 border border-gray-200 rounded-xl font-bold text-gray-800"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 mb-1">機車(小)</label>
+                    <input
+                      type="number"
+                      value={feeConfig.motorcycle.small}
+                      onChange={(e) => {
+                        const newConfig = { ...feeConfig, motorcycle: { ...feeConfig.motorcycle, small: Number(e.target.value) } };
+                        setFeeConfig(newConfig);
+                        saveFeeConfig(newConfig);
+                      }}
+                      className="w-full p-3 border border-gray-200 rounded-xl font-bold text-gray-800"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 mb-1">機車(大)</label>
+                    <input
+                      type="number"
+                      value={feeConfig.motorcycle.large}
+                      onChange={(e) => {
+                        const newConfig = { ...feeConfig, motorcycle: { ...feeConfig.motorcycle, large: Number(e.target.value) } };
+                        setFeeConfig(newConfig);
+                        saveFeeConfig(newConfig);
+                      }}
+                      className="w-full p-3 border border-gray-200 rounded-xl font-bold text-gray-800"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 mb-1">汽車(小)</label>
+                    <input
+                      type="number"
+                      value={feeConfig.car.small}
+                      onChange={(e) => {
+                        const newConfig = { ...feeConfig, car: { ...feeConfig.car, small: Number(e.target.value) } };
+                        setFeeConfig(newConfig);
+                        saveFeeConfig(newConfig);
+                      }}
+                      className="w-full p-3 border border-gray-200 rounded-xl font-bold text-gray-800"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 mb-1">汽車(大)</label>
+                    <input
+                      type="number"
+                      value={feeConfig.car.large}
+                      onChange={(e) => {
+                        const newConfig = { ...feeConfig, car: { ...feeConfig.car, large: Number(e.target.value) } };
+                        setFeeConfig(newConfig);
+                        saveFeeConfig(newConfig);
+                      }}
+                      className="w-full p-3 border border-gray-200 rounded-xl font-bold text-gray-800"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="bg-white p-8 rounded-3xl shadow-xl border-2 border-green-100">
             <h3 className="font-bold text-green-900 mb-6 flex items-center gap-2">
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -498,10 +854,11 @@ const AdminPortal: React.FC<Props> = ({ residents, payments, onPaymentSubmit, cu
             <div className="grid grid-cols-1 gap-4">
               <button
                 onClick={exportPaidReport}
-                className="flex items-center justify-between p-4 bg-green-50 hover:bg-green-100 text-green-700 rounded-2xl transition-all border border-green-200 group"
+                disabled={isExporting}
+                className="flex items-center justify-between p-4 bg-green-50 hover:bg-green-100 disabled:bg-gray-100 disabled:text-gray-400 text-green-700 rounded-2xl transition-all border border-green-200 group"
               >
                 <div className="text-left">
-                  <p className="font-black text-sm">匯出本月已繳名單</p>
+                  <p className="font-black text-sm">{isExporting ? '處理中...' : '本月已繳名單'}</p>
                   <p className="text-[10px] opacity-70 font-bold">{initialY}年{initialM}月</p>
                 </div>
                 <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -511,12 +868,13 @@ const AdminPortal: React.FC<Props> = ({ residents, payments, onPaymentSubmit, cu
 
               <button
                 onClick={exportUnpaidReport}
-                className="flex items-center justify-between p-4 bg-red-50 hover:bg-red-100 text-red-700 rounded-2xl transition-all border border-red-200 group"
+                disabled={isExporting}
+                className="flex items-center justify-between p-4 bg-red-50 hover:bg-red-100 disabled:bg-gray-100 disabled:text-gray-400 text-red-700 rounded-2xl transition-all border border-red-200 group"
               >
                 <div className="text-left">
-                  <p className="font-black text-sm">匯出上月欠繳名單</p>
+                  <p className="font-black text-sm">{isExporting ? '處理中...' : '上月至今仍欠繳名單'}</p>
                   <p className="text-[10px] opacity-70 font-bold">
-                    {initialM === 1 ? initialY - 1 : initialY}年{initialM === 1 ? 12 : initialM - 1}月
+                    {initialM === 1 ? initialY - 1 : initialY}年{initialM === 1 ? 12 : initialM - 1}月 起
                   </p>
                 </div>
                 <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">

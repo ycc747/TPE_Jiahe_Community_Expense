@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { AddressRegistration, User } from '../types';
-import { getAllRegistrations, saveRegistration, getPendingRegistrations, getAllUsers, saveUser } from '../utils/auth';
+import { getAllRegistrations, saveRegistration, getPendingRegistrations, getAllUsers, saveUser, updateUserRole } from '../utils/auth';
 
 interface Props {
     currentUser: User;
@@ -9,6 +9,10 @@ interface Props {
 const ApprovalPanel: React.FC<Props> = ({ currentUser }) => {
     const [registrations, setRegistrations] = useState<AddressRegistration[]>([]);
     const [filter, setFilter] = useState<'all' | 'pending'>('pending');
+
+    // Modal state
+    const [showStaffModal, setShowStaffModal] = useState(false);
+    const [targetReg, setTargetReg] = useState<AddressRegistration | null>(null);
 
     useEffect(() => {
         loadRegistrations();
@@ -54,6 +58,34 @@ const ApprovalPanel: React.FC<Props> = ({ currentUser }) => {
         loadRegistrations();
     };
 
+    // Triggered by button click
+    const confirmApproveStaff = (reg: AddressRegistration) => {
+        setTargetReg(reg);
+        setShowStaffModal(true);
+    };
+
+    // Execute approval
+    const executeApproveStaff = () => {
+        if (!targetReg) return;
+
+        // 1. Approve Registration (to clear it)
+        const updatedReg: AddressRegistration = {
+            ...targetReg,
+            status: 'approved',
+            approvedBy: currentUser.id,
+            approvedAt: new Date().toISOString()
+        };
+        saveRegistration(updatedReg);
+
+        // 2. Promote User Role
+        updateUserRole(targetReg.userId, 'KEEP');
+
+        // 3. Reload
+        loadRegistrations();
+        setShowStaffModal(false);
+        setTargetReg(null);
+    };
+
     const getStatusBadge = (status: string) => {
         const badges = {
             pending: 'bg-yellow-100 text-yellow-700 border-yellow-300',
@@ -85,8 +117,8 @@ const ApprovalPanel: React.FC<Props> = ({ currentUser }) => {
                         <button
                             onClick={() => setFilter('pending')}
                             className={`px-4 py-2 rounded-xl font-bold transition-all ${filter === 'pending'
-                                    ? 'bg-indigo-600 text-white shadow-lg'
-                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                ? 'bg-indigo-600 text-white shadow-lg'
+                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                                 }`}
                         >
                             待審核 ({getPendingRegistrations().length})
@@ -94,8 +126,8 @@ const ApprovalPanel: React.FC<Props> = ({ currentUser }) => {
                         <button
                             onClick={() => setFilter('all')}
                             className={`px-4 py-2 rounded-xl font-bold transition-all ${filter === 'all'
-                                    ? 'bg-indigo-600 text-white shadow-lg'
-                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                ? 'bg-indigo-600 text-white shadow-lg'
+                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                                 }`}
                         >
                             全部
@@ -111,16 +143,32 @@ const ApprovalPanel: React.FC<Props> = ({ currentUser }) => {
                     <div className="space-y-4">
                         {registrations.map(reg => {
                             const user = getAllUsers().find(u => u.id === reg.userId);
+                            const isStaffApply = reg.residentId === 'STAFF_APPLY';
+                            const canApprove = isStaffApply
+                                ? ['MGR', 'ADMIN'].includes(currentUser.role)
+                                : true; // KEEP can approve normal residents
+
                             return (
                                 <div key={reg.id} className="border-2 border-gray-100 rounded-2xl p-6 hover:shadow-lg transition-all">
                                     <div className="flex items-start justify-between">
                                         <div className="flex-1">
-                                            <div className="flex items-center gap-3 mb-3">
-                                                <h3 className="text-xl font-black text-gray-800">{reg.residentId}</h3>
-                                                <span className={`px-3 py-1 rounded-full text-xs font-bold border-2 ${getStatusBadge(reg.status)}`}>
-                                                    {getStatusText(reg.status)}
-                                                </span>
-                                            </div>
+                                            {isStaffApply ? (
+                                                <div className="flex items-center gap-3 mb-3">
+                                                    <h3 className="text-xl font-black text-indigo-700 flex items-center gap-2">
+                                                        <span>👮</span> 申請管理員/警衛/委員身分
+                                                    </h3>
+                                                    <span className={`px-3 py-1 rounded-full text-xs font-bold border-2 ${getStatusBadge(reg.status)}`}>
+                                                        {getStatusText(reg.status)}
+                                                    </span>
+                                                </div>
+                                            ) : (
+                                                <div className="flex items-center gap-3 mb-3">
+                                                    <h3 className="text-xl font-black text-gray-800">{reg.residentId}</h3>
+                                                    <span className={`px-3 py-1 rounded-full text-xs font-bold border-2 ${getStatusBadge(reg.status)}`}>
+                                                        {getStatusText(reg.status)}
+                                                    </span>
+                                                </div>
+                                            )}
 
                                             <div className="space-y-1 text-sm text-gray-600">
                                                 <p><span className="font-bold">申請人：</span>{user?.username || '未知'} ({user?.role})</p>
@@ -134,14 +182,23 @@ const ApprovalPanel: React.FC<Props> = ({ currentUser }) => {
                                             </div>
                                         </div>
 
-                                        {reg.status === 'pending' && (
+                                        {reg.status === 'pending' && canApprove && (
                                             <div className="flex gap-2">
-                                                <button
-                                                    onClick={() => handleApprove(reg)}
-                                                    className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl transition-all shadow-lg active:scale-95"
-                                                >
-                                                    ✓ 核准
-                                                </button>
+                                                {isStaffApply ? (
+                                                    <button
+                                                        onClick={() => confirmApproveStaff(reg)}
+                                                        className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition-all shadow-lg active:scale-95"
+                                                    >
+                                                        ✓ 核准為 KEEP
+                                                    </button>
+                                                ) : (
+                                                    <button
+                                                        onClick={() => handleApprove(reg)}
+                                                        className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl transition-all shadow-lg active:scale-95"
+                                                    >
+                                                        ✓ 核准
+                                                    </button>
+                                                )}
                                                 <button
                                                     onClick={() => handleReject(reg)}
                                                     className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl transition-all shadow-lg active:scale-95"
@@ -157,6 +214,33 @@ const ApprovalPanel: React.FC<Props> = ({ currentUser }) => {
                     </div>
                 )}
             </div>
+
+            {/* Staff Approval Modal */}
+            {showStaffModal && targetReg && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
+                    <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl animate-popIn border-2 border-indigo-100">
+                        <h3 className="text-2xl font-black text-gray-800 mb-4 text-center">權限升級確認</h3>
+                        <p className="text-gray-600 mb-8 text-center font-bold">
+                            確定要核准 <span className="text-indigo-600">{getAllUsers().find(u => u.id === targetReg.userId)?.username}</span> 成為管理員/警衛 (KEEP) 嗎？<br />
+                            <span className="text-sm text-gray-500 font-normal mt-2 block">(核准後該用戶將獲得管理系統存取權限)</span>
+                        </p>
+                        <div className="flex gap-4">
+                            <button
+                                onClick={() => setShowStaffModal(false)}
+                                className="flex-1 py-3 bg-gray-200 text-gray-700 font-bold rounded-xl hover:bg-gray-300 transition-colors"
+                            >
+                                取消
+                            </button>
+                            <button
+                                onClick={executeApproveStaff}
+                                className="flex-1 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 shadow-lg transition-transform active:scale-95"
+                            >
+                                確認核准
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

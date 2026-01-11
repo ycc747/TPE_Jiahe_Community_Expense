@@ -46,6 +46,16 @@ const ResidentPortal: React.FC<Props> = ({ residents, payments, currentUser }) =
     }
     const addressPart = b ? `${aa}-${b}` : `${aa}`;
     const normalized = `${addressPart}-${c}`;
+
+    // Permission Check for EXT users
+    if (currentUser.role === 'EXT') {
+      const allowed = currentUser.registeredAddresses.includes(normalized);
+      if (!allowed) {
+        setError('您的帳號並未綁定該門號, 無權查詢繳費情況');
+        return;
+      }
+    }
+
     setActiveSearch(normalized);
   };
 
@@ -73,38 +83,73 @@ const ResidentPortal: React.FC<Props> = ({ residents, payments, currentUser }) =
           )}
 
           <div className="flex flex-col items-center gap-6">
-            <div className="flex flex-wrap items-center justify-center gap-2 text-xl font-bold text-gray-700">
-              <select
-                className="w-20 px-2 py-3 border-2 border-indigo-100 rounded-xl outline-none text-center shadow-inner bg-white"
-                value={aa}
-                onChange={(e) => setAa(e.target.value)}
-              >
-                <option value="">--</option>
-                {aaOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-              </select>
-              <span>-</span>
-              <select
-                className="w-24 px-2 py-3 border-2 border-indigo-100 rounded-xl outline-none text-center shadow-inner bg-white"
-                value={b}
-                onChange={(e) => setB(e.target.value)}
-              >
-                {bOptions.map(opt => <option key={opt} value={opt}>{opt === '' ? '(無)' : opt}</option>)}
-              </select>
-              <span>號</span>
-              <select
-                className="w-16 px-2 py-3 border-2 border-indigo-100 rounded-xl outline-none text-center shadow-inner bg-white"
-                value={c}
-                onChange={(e) => setC(e.target.value)}
-              >
-                <option value="">--</option>
-                {cOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-              </select>
-              <span>樓</span>
-            </div>
+            {currentUser.role === 'EXT' ? (
+              <div className="w-full max-w-sm space-y-2">
+                <label className="block text-sm font-bold text-gray-600 text-center mb-1">選擇您的已登記門牌</label>
+                {currentUser.registeredAddresses && currentUser.registeredAddresses.length > 0 ? (
+                  <select
+                    className="w-full px-4 py-3 border-2 border-indigo-100 rounded-xl outline-none text-center shadow-inner bg-white text-lg font-bold text-gray-700"
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val) {
+                        const parts = val.split('-');
+                        if (parts.length === 2) {
+                          setAa(parts[0]); setB(''); setC(parts[1]);
+                        } else if (parts.length === 3) {
+                          setAa(parts[0]); setB(parts[1]); setC(parts[2]);
+                        }
+                        setError('');
+                      } else {
+                        setAa(''); setB(''); setC('');
+                      }
+                    }}
+                  >
+                    <option value="">-- 請選擇 --</option>
+                    {currentUser.registeredAddresses.map(addr => (
+                      <option key={addr} value={addr}>{addr.replace(/-/g, '號 ')}樓</option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="p-4 bg-yellow-50 text-yellow-800 rounded-xl text-center font-bold text-sm">
+                    您尚未登記任何住戶地址。<br />請聯繫管理員或重新註冊。
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="flex flex-wrap items-center justify-center gap-2 text-xl font-bold text-gray-700">
+                <select
+                  className="w-20 px-2 py-3 border-2 border-indigo-100 rounded-xl outline-none text-center shadow-inner bg-white"
+                  value={aa}
+                  onChange={(e) => setAa(e.target.value)}
+                >
+                  <option value="">--</option>
+                  {aaOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                </select>
+                <span>-</span>
+                <select
+                  className="w-24 px-2 py-3 border-2 border-indigo-100 rounded-xl outline-none text-center shadow-inner bg-white"
+                  value={b}
+                  onChange={(e) => setB(e.target.value)}
+                >
+                  {bOptions.map(opt => <option key={opt} value={opt}>{opt === '' ? '(無)' : opt}</option>)}
+                </select>
+                <span>號</span>
+                <select
+                  className="w-16 px-2 py-3 border-2 border-indigo-100 rounded-xl outline-none text-center shadow-inner bg-white"
+                  value={c}
+                  onChange={(e) => setC(e.target.value)}
+                >
+                  <option value="">--</option>
+                  {cOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                </select>
+                <span>樓</span>
+              </div>
+            )}
 
             <button
               onClick={validateAndSearch}
-              className="w-full sm:w-64 bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-4 rounded-2xl font-bold transition-all shadow-lg active:scale-95"
+              className="w-full sm:w-64 bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-4 rounded-2xl font-bold transition-all shadow-lg active:scale-95 disabled:bg-gray-400 disabled:shadow-none"
+              disabled={currentUser.role === 'EXT' && (!currentUser.registeredAddresses || currentUser.registeredAddresses.length === 0)}
             >
               查詢明細
             </button>

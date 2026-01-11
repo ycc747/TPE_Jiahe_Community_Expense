@@ -8,7 +8,8 @@ import Receipt from './components/Receipt';
 import Login from './components/Login';
 import AddressRegistrationComponent from './components/AddressRegistration';
 import ApprovalPanel from './components/ApprovalPanel';
-import { getCurrentUser, logout, getUserRegistrations, hasPermission } from './utils/auth';
+import UserManagement from './components/UserManagement';
+import { getCurrentUser, logout, getUserRegistrations, hasPermission, initializeDefaultUsers } from './utils/auth';
 
 const AppContent: React.FC = () => {
   const [residents, setResidents] = useState<Resident[]>([]);
@@ -18,19 +19,24 @@ const AppContent: React.FC = () => {
   const [printData, setPrintData] = useState<{ record: PaymentRecord; resident: Resident } | null>(null);
   const navigate = useNavigate();
 
-  // Check login status
+  // Check login status and initialize defaults
   useEffect(() => {
-    const user = getCurrentUser();
-    setCurrentUser(user);
+    const init = async () => {
+      await initializeDefaultUsers();
+      const user = getCurrentUser();
+      setCurrentUser(user);
 
-    if (user && user.role !== 'ADMIN') {
-      // Check if user needs to register addresses
-      const regs = getUserRegistrations(user.id);
-      const approved = regs.filter(r => r.status === 'approved');
-      if (approved.length === 0) {
-        setNeedsAddressRegistration(true);
+      if (user && user.role === 'EXT') {
+        // Check if user needs to register addresses
+        const regs = getUserRegistrations(user.id);
+        if (regs.length === 0) {
+          setNeedsAddressRegistration(true);
+        } else {
+          setNeedsAddressRegistration(false);
+        }
       }
-    }
+    };
+    init();
   }, []);
 
   // Initialize residents data
@@ -103,16 +109,17 @@ const AppContent: React.FC = () => {
     const user = getCurrentUser();
     setCurrentUser(user);
 
-    if (user && user.role !== 'ADMIN') {
+    if (user && user.role === 'EXT') {
       const regs = getUserRegistrations(user.id);
-      const approved = regs.filter(r => r.status === 'approved');
-      if (approved.length === 0) {
+      if (regs.length === 0) {
         setNeedsAddressRegistration(true);
         navigate('/register-address');
       } else {
+        setNeedsAddressRegistration(false);
         navigate('/');
       }
     } else {
+      setNeedsAddressRegistration(false);
       navigate('/');
     }
   };
@@ -140,6 +147,7 @@ const AppContent: React.FC = () => {
       <AddressRegistrationComponent
         user={currentUser}
         onComplete={handleAddressRegistrationComplete}
+        onLogout={handleLogout}
       />
     );
   }
@@ -175,6 +183,14 @@ const AppContent: React.FC = () => {
                     </Link>
                   </>
                 )}
+                {currentUser.role === 'ADMIN' && (
+                  <Link
+                    to="/users"
+                    className="px-4 py-2 rounded-xl font-bold hover:bg-purple-50 transition-colors text-purple-700"
+                  >
+                    帳號權限
+                  </Link>
+                )}
               </div>
             </div>
             <div className="flex items-center gap-4">
@@ -205,7 +221,7 @@ const AppContent: React.FC = () => {
       )}
 
       {/* Main Content */}
-      <div className="container mx-auto p-4 md:p-8">
+      <div className="container mx-auto p-4 md:p-8 no-print">
         <Routes>
           <Route
             path="/"
@@ -257,11 +273,22 @@ const AppContent: React.FC = () => {
             }
           />
           <Route
+            path="/users"
+            element={
+              currentUser.role === 'ADMIN' ? (
+                <UserManagement currentUser={currentUser} />
+              ) : (
+                <Navigate to="/" replace />
+              )
+            }
+          />
+          <Route
             path="/register-address"
             element={
               <AddressRegistrationComponent
                 user={currentUser}
                 onComplete={handleAddressRegistrationComplete}
+                onLogout={handleLogout}
               />
             }
           />

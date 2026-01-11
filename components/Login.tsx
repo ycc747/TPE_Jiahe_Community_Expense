@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { getUserByUsername, verifyPassword, setCurrentUser, initializeAdminUser } from '../utils/auth';
+import { getUserByUsername, verifyPassword, setCurrentUser, initializeDefaultUsers, registerUser } from '../utils/auth';
 
 interface Props {
     onLoginSuccess: () => void;
@@ -10,39 +10,54 @@ const Login: React.FC<Props> = ({ onLoginSuccess }) => {
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+    const [isRegistering, setIsRegistering] = useState(false);
 
     React.useEffect(() => {
         // Initialize admin user on mount
-        initializeAdminUser();
+        initializeDefaultUsers();
     }, []);
 
-    const handleLogin = async (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
         setLoading(true);
 
         try {
-            const user = getUserByUsername(username);
+            if (isRegistering) {
+                // Handle Registration
+                try {
+                    const newUser = await registerUser(username, password);
+                    // Auto login after registration
+                    setCurrentUser(newUser);
+                    onLoginSuccess();
+                } catch (err: any) {
+                    setError(err.message || '註冊失敗');
+                    setLoading(false);
+                }
+            } else {
+                // Handle Login
+                const user = getUserByUsername(username);
 
-            if (!user) {
-                setError('使用者不存在');
-                setLoading(false);
-                return;
+                if (!user) {
+                    setError('使用者不存在');
+                    setLoading(false);
+                    return;
+                }
+
+                const isValid = await verifyPassword(password, user.passwordHash);
+
+                if (!isValid) {
+                    setError('密碼錯誤');
+                    setLoading(false);
+                    return;
+                }
+
+                // Login successful
+                setCurrentUser(user);
+                onLoginSuccess();
             }
-
-            const isValid = await verifyPassword(password, user.passwordHash);
-
-            if (!isValid) {
-                setError('密碼錯誤');
-                setLoading(false);
-                return;
-            }
-
-            // Login successful
-            setCurrentUser(user);
-            onLoginSuccess();
         } catch (err) {
-            setError('登入失敗，請稍後再試');
+            setError(isRegistering ? '註冊失敗' : '登入失敗，請稍後再試');
             setLoading(false);
         }
     };
@@ -62,7 +77,12 @@ const Login: React.FC<Props> = ({ onLoginSuccess }) => {
                         </div>
                     )}
 
-                    <form onSubmit={handleLogin} className="space-y-6">
+                    <form onSubmit={handleSubmit} className="space-y-6">
+                        <div className="text-center mb-6">
+                            <h2 className="text-xl font-bold text-gray-700">
+                                {isRegistering ? '註冊新帳號' : '住戶登入'}
+                            </h2>
+                        </div>
                         <div>
                             <label className="block text-sm font-bold text-gray-700 mb-2">
                                 帳號
@@ -72,7 +92,7 @@ const Login: React.FC<Props> = ({ onLoginSuccess }) => {
                                 value={username}
                                 onChange={(e) => setUsername(e.target.value)}
                                 className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-indigo-500 focus:outline-none transition-colors"
-                                placeholder="請輸入帳號"
+                                placeholder={isRegistering ? "請設定您的帳號" : "請輸入帳號"}
                                 required
                             />
                         </div>
@@ -86,7 +106,7 @@ const Login: React.FC<Props> = ({ onLoginSuccess }) => {
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-indigo-500 focus:outline-none transition-colors"
-                                placeholder="請輸入密碼"
+                                placeholder={isRegistering ? "請設定您的密碼" : "請輸入密碼"}
                                 required
                             />
                         </div>
@@ -96,8 +116,23 @@ const Login: React.FC<Props> = ({ onLoginSuccess }) => {
                             disabled={loading}
                             className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition-all shadow-lg active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            {loading ? '登入中...' : '登入'}
+                            {loading ? (isRegistering ? '註冊中...' : '登入中...') : (isRegistering ? '確認註冊' : '登入')}
                         </button>
+
+                        <div className="flex justify-center pt-2">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setIsRegistering(!isRegistering);
+                                    setError('');
+                                    setUsername('');
+                                    setPassword('');
+                                }}
+                                className="text-sm text-indigo-600 hover:text-indigo-800 font-bold hover:underline"
+                            >
+                                {isRegistering ? '已有帳號？返回登入' : '第一次使用？註冊新帳號'}
+                            </button>
+                        </div>
                     </form>
 
                     <div className="mt-8 pt-6 border-t border-gray-200">

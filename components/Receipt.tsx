@@ -10,7 +10,7 @@ interface Props {
 
 const Receipt: React.FC<Props> = ({ record, resident, operatorName }) => {
   return (
-    <div className="p-12 border-8 border-double border-gray-900 bg-white max-w-2xl mx-auto my-8 font-serif print-only">
+    <div className="p-8 border-4 border-double border-gray-900 bg-white max-w-2xl mx-auto my-4 font-serif print-only">
       <div className="text-center mb-10">
         <h1 className="text-4xl font-black mb-2">嘉禾社區管理委員會</h1>
         <h2 className="text-2xl font-bold tracking-[0.5em] border-b-4 border-gray-900 inline-block pb-2">正式收據</h2>
@@ -63,17 +63,13 @@ const Receipt: React.FC<Props> = ({ record, resident, operatorName }) => {
         </tfoot>
       </table>
 
-      <div className="mb-16">
-        <p className="text-gray-700 italic border-l-4 border-gray-300 pl-4">
+      <div className="mb-8">
+        <p className="text-gray-700 italic border-l-4 border-gray-300 pl-4 text-xs">
           備註：繳費總額已包含預繳月份。本收據自動產生，請妥善保存核對。
         </p>
       </div>
 
-      <div className="flex justify-around items-end">
-        <div className="text-center">
-          <div className="w-40 h-px bg-gray-600 mb-2 mx-auto"></div>
-          <p className="text-sm font-bold">住戶簽章</p>
-        </div>
+      <div className="flex justify-end items-end">
         <div className="text-center">
           <div className="w-40 h-px bg-gray-600 mb-2 mx-auto"></div>
           <p className="text-sm font-bold">經辦人簽章</p>

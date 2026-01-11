@@ -7,6 +7,17 @@ export interface Resident {
   motorcycleCount: number;
   carParking: 'none' | 'small' | 'large';
   carCount: number;
+  // Auto-fill parking configuration from last registration
+  lastParkingConfig?: {
+    moto: { smallCount: number; largeCount: number };
+    car: { smallCount: number; largeCount: number };
+  };
+  // Auto-fill payment period dates from last registration
+  lastPaymentPeriods?: {
+    mgmt: { prev: { y: number; m: number }; next: { y: number; m: number } };
+    moto: { prev: { y: number; m: number }; next: { y: number; m: number } };
+    car: { prev: { y: number; m: number }; next: { y: number; m: number } };
+  };
 }
 
 export interface PaymentRecord {
@@ -28,10 +39,10 @@ export interface PaymentRecord {
   nextCarStart: string; // "YYYY-MM"
 }
 
-export const FEE_CONFIG = {
-  MANAGEMENT: 800,
-  MOTORCYCLE: { small: 100, large: 200, none: 0 },
-  CAR: { small: 1200, large: 1800, none: 0 }
+export const DEFAULT_FEE_CONFIG: FeeConfig = {
+  management: 800,
+  motorcycle: { small: 100, large: 200, none: 0 },
+  car: { small: 1200, large: 1800, none: 0 }
 };
 
 export const ADDRESS_NUMBERS = [
@@ -66,8 +77,8 @@ export interface AddressRegistration {
 
 export interface FeeConfig {
   management: number;
-  motorcycle: { small: number; large: number };
-  car: { small: number; large: number };
+  motorcycle: { small: number; large: number; none: number };
+  car: { small: number; large: number; none: number };
   lastModifiedBy?: string; // User ID (only MGR can modify)
   lastModifiedAt?: string; // ISO date string
 }

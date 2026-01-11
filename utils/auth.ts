@@ -1,4 +1,4 @@
-import { User, UserRole, AddressRegistration, ApprovalStatus } from '../types';
+import { User, UserRole, AddressRegistration, ApprovalStatus, FeeConfig, DEFAULT_FEE_CONFIG } from '../types';
 
 // Simple hash function (for demo - in production use bcrypt or similar)
 export const hashPassword = async (password: string): Promise<string> => {
@@ -87,6 +87,23 @@ export const saveUser = (user: User): void => {
     localStorage.setItem('jiahe_users', JSON.stringify(users));
 };
 
+// Delete user
+export const deleteUser = (userId: string): void => {
+    const users = getAllUsers();
+    const newUsers = users.filter(u => u.id !== userId);
+    localStorage.setItem('jiahe_users', JSON.stringify(newUsers));
+};
+
+// Update user role
+export const updateUserRole = (userId: string, newRole: UserRole): void => {
+    const users = getAllUsers();
+    const userIndex = users.findIndex(u => u.id === userId);
+    if (userIndex >= 0) {
+        users[userIndex].role = newRole;
+        localStorage.setItem('jiahe_users', JSON.stringify(users));
+    }
+};
+
 // Get user by username
 export const getUserByUsername = (username: string): User | null => {
     const users = getAllUsers();
@@ -125,21 +142,78 @@ export const getUserRegistrations = (userId: string): AddressRegistration[] => {
     return getAllRegistrations().filter(r => r.userId === userId);
 };
 
-// Initialize admin user if not exists
-export const initializeAdminUser = async (): Promise<void> => {
+// Register new user (EXT role by default)
+export const registerUser = async (username: string, password: string): Promise<User> => {
     const users = getAllUsers();
-    const adminExists = users.some(u => u.role === 'ADMIN');
-
-    if (!adminExists) {
-        const adminPassword = 'admin123'; // Default password - should be changed
-        const adminUser: User = {
-            id: 'admin-001',
-            username: 'admin',
-            passwordHash: await hashPassword(adminPassword),
-            role: 'ADMIN',
-            registeredAddresses: [],
-            createdAt: new Date().toISOString()
-        };
-        saveUser(adminUser);
+    if (users.some(u => u.username === username)) {
+        throw new Error('帳號已被使用');
     }
+
+    const newUser: User = {
+        id: `user-${username}-${Date.now()}`,
+        username,
+        passwordHash: await hashPassword(password),
+        role: 'EXT',
+        registeredAddresses: [],
+        createdAt: new Date().toISOString()
+    };
+
+    saveUser(newUser);
+    return newUser;
+};
+
+// Reset system data (Clear all except admin)
+export const resetSystemData = (): void => {
+    const users = getAllUsers();
+    const admin = users.find(u => u.username === 'admin');
+
+    if (admin) {
+        localStorage.setItem('jiahe_users', JSON.stringify([admin]));
+    } else {
+        localStorage.removeItem('jiahe_users');
+    }
+
+    localStorage.removeItem('jiahe_registrations');
+    localStorage.removeItem('jiahe_payments');
+    window.location.reload();
+};
+
+// Initialize default users if they don't exist
+export const initializeDefaultUsers = async (): Promise<void> => {
+    const users = getAllUsers();
+
+    const defaultData = [
+        { username: 'admin', password: 'admin123', role: 'ADMIN' as UserRole }
+    ];
+
+    for (const data of defaultData) {
+        if (!users.some(u => u.username === data.username)) {
+            const newUser: User = {
+                id: `user-${data.username.toLowerCase()}-${Date.now()}`,
+                username: data.username,
+                passwordHash: await hashPassword(data.password),
+                role: data.role,
+                registeredAddresses: [],
+                createdAt: new Date().toISOString()
+            };
+            saveUser(newUser);
+        }
+    }
+};
+
+// Fee Configuration
+export const getFeeConfig = (): FeeConfig => {
+    const configJson = localStorage.getItem('jiahe_fee_config');
+    if (configJson) {
+        try {
+            return JSON.parse(configJson);
+        } catch {
+            return DEFAULT_FEE_CONFIG as unknown as FeeConfig;
+        }
+    }
+    return DEFAULT_FEE_CONFIG as unknown as FeeConfig;
+};
+
+export const saveFeeConfig = (config: FeeConfig): void => {
+    localStorage.setItem('jiahe_fee_config', JSON.stringify(config));
 };
