@@ -1,0 +1,55 @@
+name: "🚀 Release Branch Deployment"
+
+on:
+  push:
+    branches: [ release ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages-release"
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    name: "🔨 Build & Deploy Release"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout release branch
+        uses: actions/checkout@v4
+        with:
+          ref: release
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build
+        run: npm run build
+
+      - name: Checkout gh-pages branch
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: gh-pages
+
+      - name: Deploy to /release/ path
+        run: |
+          mkdir -p gh-pages/release
+          rm -rf gh-pages/release/*
+          cp -r dist/* gh-pages/release/
+          cd gh-pages
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .
+          git commit -m "Deploy release branch to /release/ path" || echo "No changes to commit"
+          git push origin gh-pages
