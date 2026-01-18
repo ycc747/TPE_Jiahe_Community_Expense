@@ -9,6 +9,7 @@ import Login from './components/Login';
 import AddressRegistrationComponent from './components/AddressRegistration';
 import ApprovalPanel from './components/ApprovalPanel';
 import UserManagement from './components/UserManagement';
+import RecordDeletion from './components/RecordDeletion';
 import { getCurrentUser, logout, getUserRegistrations, hasPermission, initializeDefaultUsers } from './utils/auth';
 
 const AppContent: React.FC = () => {
@@ -105,6 +106,16 @@ const AppContent: React.FC = () => {
     }, 300);
   };
 
+
+  const deletePayment = (residentId: string, year: number, month: number) => {
+    const newPayments = payments.filter(
+      p => !(p.residentId === residentId && p.year === year && p.month === month)
+    );
+    setPayments(newPayments);
+    localStorage.setItem('jiahe_payments', JSON.stringify(newPayments));
+  };
+
+
   const handleLoginSuccess = () => {
     const user = getCurrentUser();
     setCurrentUser(user);
@@ -182,6 +193,14 @@ const AppContent: React.FC = () => {
                       審核申請
                     </Link>
                   </>
+                )}
+                {hasPermission(currentUser, ['MGR', 'ADMIN']) && (
+                  <Link
+                    to="/delete-records"
+                    className="px-4 py-2 rounded-xl font-bold hover:bg-red-50 transition-colors text-red-700"
+                  >
+                    刪除紀錄
+                  </Link>
                 )}
                 {currentUser.role === 'ADMIN' && (
                   <Link
@@ -277,6 +296,21 @@ const AppContent: React.FC = () => {
             element={
               currentUser.role === 'ADMIN' ? (
                 <UserManagement currentUser={currentUser} />
+              ) : (
+                <Navigate to="/" replace />
+              )
+            }
+          />
+          <Route
+            path="/delete-records"
+            element={
+              hasPermission(currentUser, ['MGR', 'ADMIN']) ? (
+                <RecordDeletion
+                  residents={residents}
+                  payments={payments}
+                  onDeletePayment={deletePayment}
+                  currentUser={currentUser}
+                />
               ) : (
                 <Navigate to="/" replace />
               )
